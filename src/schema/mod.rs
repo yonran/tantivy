@@ -101,6 +101,7 @@ mod document;
 
 mod field_entry;
 mod field_value;
+mod field_type;
 
 mod text_options;
 mod u32_options;
@@ -120,7 +121,7 @@ pub use self::term::Term;
 
 pub use self::field_entry::FieldEntry;
 pub use self::field_value::FieldValue;
-pub use self::field_entry::FieldType;
+pub use self::field_type::FieldType;
 
 pub use self::text_options::TextOptions;
 pub use self::text_options::TEXT;
