@@ -5,50 +5,113 @@ use std::io::Write;
 use fst;
 use fst::raw::Fst;
 use fst::Streamer;
-
+use std::mem;
+use common::CountingWriter;
 use directory::ReadOnlySource;
 use common::BinarySerializable;
 use std::marker::PhantomData;
+
+const CACHE_SIZE: usize = 2_000_000;
+const EMPTY_ARRAY: [u8; 0] = [0u8; 0];
 
 fn convert_fst_error(e: fst::Error) -> io::Error {
     io::Error::new(io::ErrorKind::Other, e)
 }
 
+struct FstBlockBuilder {
+    fst_builder: fst::MapBuilder<Vec<u8>>,
+    first_key: Vec<u8>,
+}
+
+impl FstBlockBuilder {
+    fn new(first_key: &[u8]) -> FstBlockBuilder {
+        let buffer = Vec::with_capacity(CACHE_SIZE);
+        FstBlockBuilder {
+            fst_builder: fst::MapBuilder::new(buffer).unwrap(),
+            first_key: first_key.to_vec(),
+        }
+    }
+
+    fn insert(&mut self, key: &[u8], val: u64) {
+        self.fst_builder.insert(key, val).unwrap()
+    }
+
+    fn bytes_written(&self) -> usize {
+        self.fst_builder.bytes_written()
+    }
+
+    fn into_inner(self) -> (Vec<u8>, Vec<u8>) {
+        let buffer = self.fst_builder.into_inner().unwrap();
+        (self.first_key, buffer)
+    }
+    
+    fn cut(&mut self, first_key: &[u8]) -> (Vec<u8>, Vec<u8>) {
+        let mut fst_builder: FstBlockBuilder = FstBlockBuilder::new(first_key);
+        mem::swap(self, &mut fst_builder);
+        (fst_builder.first_key, fst_builder.fst_builder.into_inner().unwrap())
+    }
+}
+
+
+
+
 pub struct FstMapBuilder<W: Write, V: BinarySerializable> {
-    fst_builder: fst::MapBuilder<W>,
-    data: Vec<u8>,
+    counting_writer: CountingWriter<W>, 
+    block_stack: Vec<FstBlockBuilder>,
     _phantom_: PhantomData<V>,
 }
 
 impl<W: Write, V: BinarySerializable> FstMapBuilder<W, V> {
-
-    pub fn new(w: W) -> io::Result<FstMapBuilder<W, V>> {
-        let fst_builder = try!(fst::MapBuilder::new(w).map_err(convert_fst_error));
+    
+    pub fn new(write: W) -> io::Result<FstMapBuilder<W, V>> {
+        let fst_block_builder = FstBlockBuilder::new(&EMPTY_ARRAY);
         Ok(FstMapBuilder {
-            fst_builder: fst_builder,
-            data: Vec::new(),
+            counting_writer: CountingWriter::from(write),
+            block_stack: vec!(fst_block_builder),
             _phantom_: PhantomData,
         })
     }
-
+    
+    fn insert_key_addr(&mut self, layer_id: usize, key: &[u8], addr: u64) -> io::Result<()> {
+        if layer_id >= self.block_stack.len() {
+            // we need one extra layer.
+            self.block_stack.push(FstBlockBuilder::new(key));
+        }
+        {
+            let block = &mut self.block_stack[layer_id];
+            if block.bytes_written() <= CACHE_SIZE {
+                block.insert(key, addr);
+                return Ok(());
+            }
+        }
+        // we need to flush the current block.
+        let (first_key, data) = self.block_stack[layer_id].cut(key);
+        let new_addr = self.counting_writer.bytes_written() as u64;
+        self.counting_writer.write_all(&data)?;
+        self.block_stack[layer_id].insert(key, addr);
+        return self.insert_key_addr(layer_id + 1, &first_key, new_addr);
+    }
+    
     pub fn insert(&mut self, key: &[u8], value: &V) -> io::Result<()>{
-        try!(self.fst_builder
-            .insert(key, self.data.len() as u64)
-            .map_err(convert_fst_error));
-        try!(value.serialize(&mut self.data));
-        Ok(())
+        let val_addr = self.counting_writer.bytes_written() as u64;
+        value.serialize(&mut self.counting_writer)?;
+        self.insert_key_addr(0, key, val_addr)
     }
 
-    pub fn finish(self,) -> io::Result<W> {
-        let mut file = try!(
-            self.fst_builder
-                 .into_inner()
-                 .map_err(convert_fst_error));
-        let footer_size = self.data.len() as u32;
-        try!(file.write_all(&self.data));
-        try!((footer_size as u32).serialize(&mut file));
-        try!(file.flush());
-        Ok(file)
+    pub fn finish(mut self) -> io::Result<W> {
+        let mut previous_block_key_offset: Option<(Vec<u8>, u64)> = None;
+        for mut block in self.block_stack {
+            if let Some((key, offset)) = previous_block_key_offset {
+                block.insert(&key, offset);
+            }
+            let (first_key, data) = block.into_inner();
+            previous_block_key_offset = Some((first_key, self.counting_writer.bytes_written() as u64));
+            self.counting_writer.write_all(&data)?;
+        }
+        if let Some((_, first_fst_offset)) = previous_block_key_offset {
+            first_fst_offset.serialize(&mut self.counting_writer);
+        }
+        Ok(self.counting_writer.into_inner())
     }
 }
 

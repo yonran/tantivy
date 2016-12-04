@@ -1,6 +1,7 @@
 mod serialize;
 mod timer;
 mod vint;
+mod counting_writer;
 pub mod bitpacker;
 
 
@@ -9,6 +10,7 @@ pub use self::timer::Timing;
 pub use self::timer::TimerTree;
 pub use self::timer::OpenTimer;
 pub use self::vint::VInt;
+pub use self::counting_writer::CountingWriter;
 
 
 use std::io;
