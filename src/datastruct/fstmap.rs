@@ -87,6 +87,7 @@ impl<W: Write, V: BinarySerializable> FstMapBuilder<W, V> {
         // we need to flush the current block.
         let (first_key, data) = self.block_stack[layer_id].cut(key);
         let new_addr = self.counting_writer.bytes_written() as u64;
+        (data.len() as u32).serialize(&mut self.counting_writer)?;
         self.counting_writer.write_all(&data)?;
         self.block_stack[layer_id].insert(key, addr);
         return self.insert_key_addr(layer_id + 1, &first_key, new_addr);
@@ -100,24 +101,28 @@ impl<W: Write, V: BinarySerializable> FstMapBuilder<W, V> {
 
     pub fn finish(mut self) -> io::Result<W> {
         let mut previous_block_key_offset: Option<(Vec<u8>, u64)> = None;
+        let block_depth = self.block_stack.len(); 
         for mut block in self.block_stack {
             if let Some((key, offset)) = previous_block_key_offset {
                 block.insert(&key, offset);
             }
             let (first_key, data) = block.into_inner();
             previous_block_key_offset = Some((first_key, self.counting_writer.bytes_written() as u64));
+            (data.len() as u32).serialize(&mut self.counting_writer)?;
             self.counting_writer.write_all(&data)?;
         }
         if let Some((_, first_fst_offset)) = previous_block_key_offset {
             first_fst_offset.serialize(&mut self.counting_writer);
         }
+        (block_depth as u8).serialize(&mut self.counting_writer);
         Ok(self.counting_writer.into_inner())
     }
 }
 
 pub struct FstMap<V: BinarySerializable> {
-    fst_index: fst::Map,
-    values_mmap: ReadOnlySource,
+    depth: u8,
+    source: ReadOnlySource,
+    top_fst_offset: usize,
     _phantom_: PhantomData<V>,
 }
 
@@ -130,15 +135,16 @@ fn open_fst_index(source: ReadOnlySource) -> io::Result<fst::Map> {
 }
 
 pub struct FstKeyIter<'a, V: 'static + BinarySerializable> {
-    streamer: fst::map::Stream<'a>,
+    // streamer: fst::map::Stream<'a>,
     __phantom__: PhantomData<V>
 }
 
 impl<'a, V: 'static + BinarySerializable> FstKeyIter<'a, V> {
     pub fn next(&mut self) -> Option<(&[u8])> {
-        self.streamer
-            .next()
-            .map(|(k, _)| k)
+        // self.streamer
+        //     .next()
+        //     .map(|(k, _)| k)
+        panic!("TODO");
     }
 }
 
@@ -146,37 +152,64 @@ impl<'a, V: 'static + BinarySerializable> FstKeyIter<'a, V> {
 impl<V: BinarySerializable> FstMap<V> {
 
     pub fn keys(&self,) -> FstKeyIter<V> {
-        FstKeyIter {
-            streamer: self.fst_index.stream(),
-            __phantom__: PhantomData,
-        }
+        panic!("TODO");
+        // FstKeyIter {
+        //     streamer: self.fst_index.stream(),
+        //     __phantom__: PhantomData,
+        // }
     }
 
     pub fn from_source(source: ReadOnlySource)  -> io::Result<FstMap<V>> {
         let total_len = source.len();
-        let length_offset = total_len - 4;
-        let mut split_len_buffer: &[u8] = &source.as_slice()[length_offset..];
-        let footer_size = try!(u32::deserialize(&mut split_len_buffer)) as  usize;
-        let split_len = length_offset - footer_size;
-        let fst_source = source.slice(0, split_len);
-        let values_source = source.slice(split_len, length_offset);
-        let fst_index = try!(open_fst_index(fst_source));
+        if total_len < 9 {
+            // handle empty fst.
+            panic!("Empty fst");
+        }
+        let footer_start = total_len - 9;
+        let footer = source.slice(footer, total_len);
+        let depth: u8 = &footer.as_slice()[8];
+        let top_fst_offset = u64::deserialize(&footer.as_slice())? as usize;
+        
+        // let mut split_len_buffer: &[u8] = &source.as_slice()[length_offset..];
+        // let footer_size = try!(u32::deserialize(&mut split_len_buffer)) as  usize;
+        // let split_len = length_offset - footer_size;
+        // let fst_source = source.slice(0, split_len);
+        // let values_source = source.slice(split_len, length_offset);
+        // let fst_index = try!(open_fst_index(fst_source));
         Ok(FstMap {
-            fst_index: fst_index,
-            values_mmap: values_source,
+            source: ReadOnlySource,
+            depth: depth,
+            top_fst_offset: top_fst_offset,
+            // fst_index: fst_index,
+            // values_mmap: values_source,
             _phantom_: PhantomData,
         })
     }
 
     fn read_value(&self, offset: u64) -> V {
-        let buffer = self.values_mmap.as_slice();
+        // TODO avoid reading too much
+        let buffer = self.source.as_slice();
         let mut cursor = &buffer[(offset as usize)..];
         V::deserialize(&mut cursor).expect("Data in FST is corrupted")
     }
 
+    fn get_fst(&self, start_offset: usize) -> io::Result<fst::Map> {
+        let len_data = self.source.slice(start_offset, 4);
+        let fst_len = u32::deserialize(len_data.as_slice())?;
+        let fst_start = start_offset + 4;
+        let fst_stop = start_offset + fst_len;
+        let fst_data = fst_source.slice(fst_start, start_offset);
+        open_fst_index(fst_data)
+    }
+
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Option<V> {
-        self.fst_index
-            .get(key)
+        let mut offset = self.first_fst_offset;
+        for i in 0..self.depth - 1 {
+            let fst = self.get_fst(offset)?;
+            // get_lower
+            offset = fst.get_lower(key);
+        }
+        self.get_fst(offset).get(key)
             .map(|offset| self.read_value(offset))
     }
 }
