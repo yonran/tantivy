@@ -10,7 +10,7 @@ use postings::TermInfo;
 use postings::Postings;
 use postings::DocSet;
 use std::collections::BinaryHeap;
-use datastruct::FstKeyIter;
+use datastruct::CascadeStreamer;
 use schema::{Term, Schema, Field};
 use fastfield::FastFieldSerializer;
 use store::StoreWriter;
@@ -18,6 +18,7 @@ use postings::ChainedPostings;
 use postings::HasLen;
 use postings::OffsetPostings;
 use core::SegmentInfo;
+use fst::Streamer;
 use std::cmp::{min, max, Ordering};
 use std::iter;
 
@@ -25,7 +26,7 @@ use std::iter;
 struct PostingsMerger<'a> {
     doc_offsets: Vec<DocId>,
     heap: BinaryHeap<HeapItem>,
-    term_streams: Vec<FstKeyIter<'a, TermInfo>>,
+    term_streams: Vec<CascadeStreamer>,
     readers: &'a [SegmentReader],
 }
 
@@ -57,7 +58,7 @@ impl<'a> PostingsMerger<'a> {
         };
         let term_streams = readers
             .iter()
-            .map(|reader| reader.term_infos().keys())
+            .map(|reader| reader.term_infos().iter_kvs())
             .collect();
         let mut postings_merger = PostingsMerger {
             heap: BinaryHeap::new(),
@@ -74,7 +75,7 @@ impl<'a> PostingsMerger<'a> {
     // pushes the term_reader associated with the given segment ordinal
     // into the heap.
     fn push_next_segment_el(&mut self, segment_ord: usize) {
-        if let Some(term) = self.term_streams[segment_ord].next() {
+        if let Some((term, _)) = self.term_streams[segment_ord].next() {
             let it = HeapItem {
                 term: Term::from(term),
                 segment_ord: segment_ord,
