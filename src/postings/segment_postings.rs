@@ -70,7 +70,6 @@ impl<'a> SegmentPostingsBlockCursor<'a> {
 /// Positions on the other hand, are optionally entirely decoded upfront.
 pub struct SegmentPostings<'a> {
     len: usize,
-    // doc_offset: usize,
     cur: Wrapping<usize>,
     block_cursor: SegmentPostingsBlockCursor<'a>,
     cur_block_len: usize
@@ -105,6 +104,10 @@ impl<'a> SegmentPostings<'a> {
 
     pub fn advance_block(&mut self) -> bool {
         self.block_cursor.advance()
+    }
+    
+    pub fn docs(&self) -> &[DocId] {
+        self.block_cursor.docs()
     }
     
     /// Returns an empty segment postings object

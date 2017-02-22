@@ -41,6 +41,7 @@ pub use common::HasLen;
 mod tests {
     
     use super::*;
+    use DocId;
     use schema::{Document, TEXT, STRING, SchemaBuilder, Term};
     use core::SegmentComponent;
     use indexer::SegmentWriter;
@@ -256,16 +257,81 @@ mod tests {
         };
     }
     
+
+
+    // #[test]
+    // fn test_compute_sum() {
+    //     let searcher = INDEX.searcher();
+    //     let segment_reader = searcher.segment_reader(0);
+    //     let sum_doc_normal = {
+    //         let segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
+    //         compute_sum_doc_normal(segment_postings)
+    //     };
+    //     let sum_doc_block = {
+    //         let segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
+    //         compute_sum_doc_block(segment_postings)
+    //     };
+    //     assert_eq!(sum_doc_normal, sum_doc_block);
+    // }
+
+    // fn compute_sum_doc_normal(mut segment_postings: SegmentPostings) -> DocId {
+    //     let mut sum_doc: DocId = 0;
+    //     while segment_postings.advance() {
+    //         sum_doc = (sum_doc + segment_postings.doc()) % 1024;
+    //     }
+    //     sum_doc
+    // }
+
+    fn compute_sum_doc_block(mut segment_postings: SegmentPostings) -> DocId {
+        let mut sum_doc: u32 = 0u32;
+        while segment_postings.advance_block() {
+            for doc in segment_postings.docs() {
+                sum_doc = (sum_doc + *doc) % 1024;
+            }
+        }
+        sum_doc
+    }
+
     #[bench]
-    fn bench_segment_postings(b: &mut Bencher) {
+    fn bench_segment_postings_nosum_normal(b: &mut Bencher) {
         let searcher = INDEX.searcher();
         let segment_reader = searcher.segment_reader(0);
-        
         b.iter(|| {
             let mut segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
-            while segment_postings.advance_block() {}
+            while segment_postings.advance() {};
         });
-    }    
+    }
+
+    //CHANGE IF UNCOMMENTED
+    // #[bench]
+    // fn bench_segment_postings_sum_blockwise(b: &mut Bencher) {
+    //     let searcher = INDEX.searcher();
+    //     let segment_reader = searcher.segment_reader(0);
+    //     b.iter(|| {
+    //         let segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
+    //         compute_sum_doc_block(segment_postings)
+    //     });
+    // }
+
+    // #[bench]
+    // fn bench_segment_postings_nosum_blockwise(b: &mut Bencher) {
+    //     let searcher = INDEX.searcher();
+    //     let segment_reader = searcher.segment_reader(0);
+    //     b.iter(|| {
+    //         let mut segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
+    //         while segment_postings.advance_block() {};
+    //     });
+    // }
+
+    // #[bench]
+    // fn bench_segment_postings_sum_normal(b: &mut Bencher) {
+    //     let searcher = INDEX.searcher();
+    //     let segment_reader = searcher.segment_reader(0);
+    //     b.iter(|| {
+    //         let segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
+    //         compute_sum_doc_normal(segment_postings)
+    //     });
+    // }   
     
     #[bench]
     fn bench_segment_intersection(b: &mut Bencher) {
