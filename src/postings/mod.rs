@@ -26,6 +26,7 @@ pub use self::postings_writer::PostingsWriter;
 pub use self::postings_writer::SpecializedPostingsWriter;
 pub use self::term_info::TermInfo;
 pub use self::postings::Postings;
+use test;
 
 #[cfg(test)]
 pub use self::vec_postings::VecPostings;
@@ -292,17 +293,30 @@ mod tests {
         sum_doc
     }
 
+    fn consume_simple(mut segment_postings: SegmentPostings) -> DocId {
+        let mut sum_doc = 0u32;
+        while segment_postings.advance() {
+            sum_doc = (sum_doc + segment_postings.doc()) % 1024;
+        }
+        sum_doc
+    }
+
     #[bench]
     fn bench_segment_postings_nosum_normal(b: &mut Bencher) {
         let searcher = INDEX.searcher();
         let segment_reader = searcher.segment_reader(0);
         b.iter(|| {
+            let n: u32 = test::black_box(17);
             let mut segment_postings = segment_reader.read_postings(&*TERM_A, SegmentPostingsOption::NoFreq).unwrap();
-            while segment_postings.advance() {};
+            let mut s = 0u32;
+            while segment_postings.advance() {
+                s += (segment_postings.doc() & n) % 1024;
+            }
+            s
         });
     }
 
-    //CHANGE IF UNCOMMENTED
+    // bench_segment_postings_nosum_normal is FASTER IF UNCOMMENTED
     // #[bench]
     // fn bench_segment_postings_sum_blockwise(b: &mut Bencher) {
     //     let searcher = INDEX.searcher();

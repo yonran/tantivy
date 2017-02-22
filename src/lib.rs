@@ -1,7 +1,7 @@
 #![doc(html_logo_url = "http://fulmicoton.com/tantivy-logo/tantivy-logo.png")]
 #![allow(unknown_lints)] // for the clippy lint options
 #![allow(module_inception)]
-
+#![feature(test)]
 #![feature(box_syntax)]
 #![feature(optin_builtin_traits)]
 #![feature(conservative_impl_trait)]
@@ -25,6 +25,7 @@ extern crate lazy_static;
 
 #[macro_use]
 extern crate log;
+
 
 #[macro_use]
 extern crate version;
