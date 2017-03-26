@@ -542,9 +542,12 @@ mod tests {
     use indexer::NoMergePolicy;
     use schema::{self, Document};
     use Index;
+    use log::LogRecord;
+    use std;
+    use std::error;
     use Term;
     use Error;
-    use env_logger;
+    use log::LogLevelFilter;
 
     #[test]
     fn test_lockfile_stops_duplicates() {
@@ -623,9 +626,50 @@ mod tests {
         index.searcher();
     }
 
+
+    use log4rs::encode::Encode;
+    use log4rs::encode::writer::simple::SimpleWriter;
+    use log4rs;
+    use log4rs::append::Append;
+    use log4rs::encode::pattern::PatternEncoder;
+    use log4rs::config::{Appender, Config, Logger, Root};
+
+    /// An appender which logs to stdout.
+    #[derive(Debug)]
+    pub struct TestAppender {
+        pattern: PatternEncoder,
+    }
+
+    impl Append for TestAppender {
+        fn append(&self, record: &LogRecord) -> Result<(), Box<error::Error + Sync + Send>> {
+            let mut w: Vec<u8> = vec!();
+            {
+                let mut writer = SimpleWriter(&mut w);
+                self.pattern.encode(&mut writer, record)?;
+            }
+            let len = w.len();
+            println!("{}", std::str::from_utf8(&w[..len-1]).unwrap());
+            Ok(())
+        }
+    }
+
+    impl TestAppender {
+        pub fn build() -> TestAppender {
+            TestAppender {
+                pattern: Default::default(),
+            } 
+        }
+    }
+
     #[test]
     fn test_with_merges() {
-        let _ = env_logger::init();
+        let stdout = TestAppender::build();
+        let config = Config::builder()
+            .appender(Appender::builder().build("stdout", Box::new(stdout)))
+            .logger(Logger::builder().build("tantivy", LogLevelFilter::Debug))
+                .build(Root::builder().appender("stdout").build(LogLevelFilter::Warn))
+            .unwrap();
+        let _log_handle = log4rs::init_config(config).unwrap();
         let mut schema_builder = schema::SchemaBuilder::default();
         let text_field = schema_builder.add_text_field("text", schema::TEXT);
         let index = Index::create_in_ram(schema_builder.build());

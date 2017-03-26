@@ -63,8 +63,8 @@ mod tests {
         assert_eq!(test_query(vec!("a", "b", "c")), vec!(2, 4));
         assert_eq!(test_query(vec!("a", "b")), vec!(1, 2, 3, 4));
         assert_eq!(test_query(vec!("b", "b")), vec!(0, 1));
-        assert_eq!(test_query(vec!("g", "ewrwer")), vec!());
-        assert_eq!(test_query(vec!("g", "a")), vec!());
+        assert_eq!(test_query(vec!("g", "ewrwer")), Vec::<u32>::new());
+        assert_eq!(test_query(vec!("g", "a")), Vec::<u32>::new());
     }
     
 }

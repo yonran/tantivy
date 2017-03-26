@@ -49,7 +49,7 @@ extern crate futures;
 extern crate futures_cpupool;
 
 #[cfg(test)]
-extern crate env_logger;
+extern crate log4rs;
 
 #[cfg(feature="simdcompression")]
 extern crate libc;

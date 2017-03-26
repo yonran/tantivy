@@ -21,4 +21,4 @@ install:
 build: false
 
 test_script:
-  - REM SET RUST_LOG=tantivy,test & cargo test --verbose
+  - cargo test --verbose -- --nocapture --test-threads 1
