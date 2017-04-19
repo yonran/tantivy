@@ -4,7 +4,8 @@ use std::io;
 use std::io::Write;
 use fst;
 use fst::raw::Fst;
-
+use fst::map::{Stream, StreamBuilder};
+use fst::{IntoStreamer, Streamer};
 use directory::ReadOnlySource;
 use common::BinarySerializable;
 use std::marker::PhantomData;
@@ -72,7 +73,7 @@ impl<W: Write, V: BinarySerializable> FstMapBuilder<W, V> {
     }
 }
 
-pub struct FstMap<V: BinarySerializable> {
+pub struct FstMap<V: BinarySerializable + Default> {
     fst_index: fst::Map,
     values_mmap: ReadOnlySource,
     _phantom_: PhantomData<V>,
@@ -86,7 +87,88 @@ fn open_fst_index(source: ReadOnlySource) -> io::Result<fst::Map> {
     }))
 }
 
-impl<V: BinarySerializable> FstMap<V> {
+
+pub struct FstMapStreamer<'a, V: BinarySerializable + Default> {
+    fst_stream: Stream<'a>,
+    values_data: &'a [u8],
+    _phantom_: PhantomData<V>,
+    buffer: Vec<u8>,
+    value: V,
+}
+
+impl<'a, V: BinarySerializable + Default> FstMapStreamer<'a, V> {
+
+    pub fn next(&mut self) -> Option<(&[u8], &V)> {
+        if let Some((key, addr)) = self.fst_stream.next() {
+                let key_len = key.len();
+                self.buffer.reserve(key_len);
+                unsafe { self.buffer.set_len(key_len); }
+                self.buffer[..key_len].copy_from_slice(key);
+                let mut reader: &[u8] = &self.values_data[(addr as usize)..];
+                self.value = V::deserialize(&mut reader).expect("Data corrupted");
+                Some((&self.buffer[..], &self.value))
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn key(&self) -> &[u8] {
+        &self.buffer[..]
+    }
+
+    pub fn value(&self) -> &V {
+        &self.value
+    }
+}
+
+pub struct FstMapStreamBuilder<'a, V: BinarySerializable + Default> { 
+    fst_stream_builder: StreamBuilder<'a>,
+    values_data: &'a [u8],
+    _phantom_: PhantomData<V>,
+}
+
+impl<'a, V: BinarySerializable + Default> FstMapStreamBuilder<'a, V> {
+    pub fn ge<T: AsRef<[u8]>>(mut self, bound: T) -> Self {
+        self.fst_stream_builder = self.fst_stream_builder.ge(bound);
+        self
+    }
+
+    pub fn gt<T: AsRef<[u8]>>(mut self, bound: T) -> Self {
+        self.fst_stream_builder = self.fst_stream_builder.gt(bound);
+        self
+    }
+
+    pub fn le<T: AsRef<[u8]>>(mut self, bound: T) -> Self {
+        self.fst_stream_builder = self.fst_stream_builder.le(bound);
+        self
+    }
+
+    pub fn lt<T: AsRef<[u8]>>(mut self, bound: T) -> Self {
+        self.fst_stream_builder = self.fst_stream_builder.lt(bound);
+        self
+    }
+
+    pub fn into_stream(self) -> FstMapStreamer<'a, V> {
+        FstMapStreamer {
+            fst_stream: self.fst_stream_builder.into_stream(),
+            values_data: self.values_data,
+            _phantom_: self._phantom_,
+            buffer: vec!(),
+            value: V::default(),
+        }
+    }
+}
+
+impl<V: BinarySerializable + Default> FstMap<V> {
+
+    pub fn range(&self) -> FstMapStreamBuilder<V> {
+        FstMapStreamBuilder {
+            fst_stream_builder: self.fst_index.range(),
+            values_data: self.values_mmap.as_slice(),
+            _phantom_: self._phantom_,
+        }
+    }
 
     pub fn keys(&self,) -> fst::map::Keys {
         self.fst_index.keys()
@@ -108,16 +190,14 @@ impl<V: BinarySerializable> FstMap<V> {
         })
     }
 
-    fn read_value(&self, offset: u64) -> V {
-        let buffer = self.values_mmap.as_slice();
-        let mut cursor = &buffer[(offset as usize)..];
-        V::deserialize(&mut cursor).expect("Data in FST is corrupted")
-    }
-
     pub fn get<K: AsRef<[u8]>>(&self, key: K) -> Option<V> {
         self.fst_index
             .get(key)
-            .map(|offset| self.read_value(offset))
+            .map(|offset| {
+                let buffer = self.values_mmap.as_slice();
+                let mut cursor = &buffer[(offset as usize)..];
+                V::deserialize(&mut cursor).expect("Data in FST is corrupted")
+            })
     }
 }
 
