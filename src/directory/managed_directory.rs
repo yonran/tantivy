@@ -71,7 +71,8 @@ impl Drop for FileProtection {
 /// Saves the file containing the list of existing files
 /// that were created by tantivy.
 fn save_managed_paths(directory: &mut Directory, wlock: &RwLockWriteGuard<MetaInformation>) -> io::Result<()> {
-    let mut w = serde_json::to_vec(&wlock.managed_paths)?;
+    let managed_paths = wlock.managed_paths.clone();
+    let mut w = serde_json::to_vec(&managed_paths)?;
     write!(&mut w, "\n")?;
     directory.atomic_write(&MANAGED_FILEPATH, &w[..])?;
     Ok(())
