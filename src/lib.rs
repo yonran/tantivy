@@ -2,6 +2,7 @@
 #![cfg_attr(feature = "cargo-clippy", allow(module_inception))]
 #![cfg_attr(feature = "cargo-clippy", allow(inline_always))]
 
+#![feature(asm)]
 #![feature(box_syntax)]
 #![feature(optin_builtin_traits)]
 #![feature(conservative_impl_trait)]

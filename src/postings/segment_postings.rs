@@ -3,7 +3,8 @@ use DocId;
 use postings::{Postings, FreqHandler, DocSet, HasLen, SkipResult};
 use std::cmp;
 use fastfield::DeleteBitSet;
-
+use std::num::Wrapping;
+use std::cmp::Ordering;
 
 const EMPTY_DATA: [u8; 0] = [0u8; 0];
 
@@ -15,10 +16,52 @@ const EMPTY_DATA: [u8; 0] = [0u8; 0];
 /// Positions on the other hand, are optionally entirely decoded upfront.
 pub struct SegmentPostings<'a> {
     len: usize,
-    cur: usize,
+    cur: Wrapping<usize>,
     block_cursor: BlockSegmentPostings<'a>,
     cur_block_len: usize,
     delete_bitset: DeleteBitSet,
+}
+
+
+fn binary_search(block: &[u32], target: u32) -> usize {
+    let mut start = 0;
+    let mut half: usize = NUM_DOCS_PER_BLOCK / 2;
+    for _ in 0..7 {
+        let middle = start + half;
+        unsafe {
+            let pivot: u32 = *block.get_unchecked(middle);
+            asm!("cmpl $2, $1\ncmovge $3, $0"
+                 : "+r"(start)
+                 :  "r"(target),  "r"(pivot), "r"(middle))
+                 ;
+        }
+        half /= 2;
+    }
+    start
+}
+
+
+// Returns the first `ord` such that
+// block[ord] >= target.
+//
+// # ASSUMES
+// that block is sorted, and that the last `doc` in 
+// block is `>= target`.
+fn search(block: &[DocId], target: DocId) -> usize {
+    if block.len() == NUM_DOCS_PER_BLOCK {
+        // Full block of 128 els.
+        // 
+        // We do a branchless, unrolled binary search.
+        binary_search(block, target)
+    }
+    else {
+        block.iter()
+             .enumerate()
+             .filter(|&(_, val)| *val >= target)
+             .map(|(ord, _)| ord)
+             .next()
+             .unwrap()
+    }
 }
 
 impl<'a> SegmentPostings<'a> {
@@ -36,7 +79,7 @@ impl<'a> SegmentPostings<'a> {
         SegmentPostings {
             len: segment_block_postings.len,
             block_cursor: segment_block_postings,
-            cur: NUM_DOCS_PER_BLOCK,  // cursor within the block
+            cur: Wrapping(NUM_DOCS_PER_BLOCK),  // cursor within the block
             cur_block_len: 0,
             delete_bitset: delete_bitset,
         }
@@ -49,7 +92,7 @@ impl<'a> SegmentPostings<'a> {
             len: 0,
             block_cursor: empty_block_cursor,
             delete_bitset: DeleteBitSet::empty(),
-            cur: NUM_DOCS_PER_BLOCK,
+            cur: Wrapping(NUM_DOCS_PER_BLOCK),
             cur_block_len: 0,
         }
     }
@@ -62,12 +105,12 @@ impl<'a> DocSet for SegmentPostings<'a> {
     #[inline]
     fn advance(&mut self) -> bool {
         loop {
-            self.cur += 1;
-            if self.cur >= self.cur_block_len {
-                self.cur = 0;
+            self.cur += Wrapping(1);
+            if self.cur.0 >= self.cur_block_len {
+                self.cur = Wrapping(0);
                 if !self.block_cursor.advance() {
                     self.cur_block_len = 0;
-                    self.cur = NUM_DOCS_PER_BLOCK;
+                    self.cur = Wrapping(NUM_DOCS_PER_BLOCK);
                     return false;
                 }
                 self.cur_block_len = self.block_cursor.docs().len();
@@ -85,20 +128,24 @@ impl<'a> DocSet for SegmentPostings<'a> {
         }
 
         // skip blocks until one that might contain the target
+        if self.block_cursor.skip_to_block_containing(target) {
+            
+        }
         loop {
             // check if we need to go to the next block
             let last_doc_in_block = {
                 let block_docs = self.block_cursor.docs();
-                block_docs[block_docs.len() - 1]
+                block_docs[self.cur_block_len - 1]
             };
             if target > last_doc_in_block {
                 if !self.block_cursor.advance() {
                     return SkipResult::End;
                 }
-                self.cur = 0;
+                self.cur_block_len = self.block_cursor.docs().len();
+                self.cur = Wrapping(0);
             } else {
                 let block_docs = self.block_cursor.docs();
-                if target < block_docs[self.cur] {
+                if target < block_docs[self.cur.0] {
                     // We've overpassed the target after the first `advance` call
                     // or we're at the beginning of a block.
                     // Either way, we're on the first `DocId` greater than `target`
@@ -108,57 +155,29 @@ impl<'a> DocSet for SegmentPostings<'a> {
             }
         }
         {
-            // we're in the right block now, start with an exponential search
-            let block_docs = self.block_cursor.docs();
-            let block_len = block_docs.len();
+            // search for the target within the block.
+            // after the block, start should be the smallest value >= to
+            // the target.
+            let start = search(self.block_cursor.docs(), target);
 
-            debug_assert!(target >= block_docs[self.cur]);
-            debug_assert!(target <= block_docs[block_len - 1]);
-
-            let mut start = 0;
-            let mut end = block_len;
-            let mut count = 1;
-            loop {
-                let new = start + count;
-                if new < end && block_docs[new] < target {
-                    start = new;
-                    count *= 2;
-                } else {
-                    break;
-                }
-            }
-            end = cmp::min(start + count, end);
-
-            // now do a binary search
-            let mut count = end - start;
-            while count > 0 {
-                let step = count / 2;
-                let mid = start + step;
-                let doc = block_docs[mid];
-                if doc < target {
-                    start = mid + 1;
-                    count -= step + 1;
-                } else {
-                    count = step;
-                }
-            }
-
-            // `doc` is now >= `target`
-            let doc = block_docs[start];
-            self.cur = start;
+            // `doc` is now the smallest number >= `target`
+            let doc = self.block_cursor.docs()[start];
+            self.cur = Wrapping(start);
 
             if !self.delete_bitset.is_deleted(doc) {
                 if doc == target {
-                    return SkipResult::Reached;
+                    SkipResult::Reached
                 } else {
-                    return SkipResult::OverStep;
+                    SkipResult::OverStep
                 }
             }
-        }
-        if self.advance() {
-            SkipResult::OverStep
-        } else {
-            SkipResult::End
+            else {
+                if self.advance() {
+                    SkipResult::OverStep
+                } else {
+                    SkipResult::End
+                }
+            }
         }
     }
     
@@ -166,8 +185,8 @@ impl<'a> DocSet for SegmentPostings<'a> {
     #[inline]
     fn doc(&self) -> DocId {
         let docs = self.block_cursor.docs();
-        assert!(self.cur < docs.len(), "Have you forgotten to call `.advance()` at least once before calling .doc().");
-        docs[self.cur]
+        assert!(self.cur.0 < docs.len(), "Have you forgotten to call `.advance()` at least once before calling .doc().");
+        docs[self.cur.0]
     }
 }
 
@@ -179,11 +198,11 @@ impl<'a> HasLen for SegmentPostings<'a> {
 
 impl<'a> Postings for SegmentPostings<'a> {
     fn term_freq(&self) -> u32 {
-        self.block_cursor.freq_handler().freq(self.cur)
+        self.block_cursor.freq_handler().freq(self.cur.0)
     }
 
     fn positions(&self) -> &[u32] {
-        self.block_cursor.freq_handler().positions(self.cur)
+        self.block_cursor.freq_handler().positions(self.cur.0)
     }
 }
 
@@ -276,12 +295,39 @@ impl<'a> BlockSegmentPostings<'a> {
 mod tests {
 
     use DocSet;
-    use super::SegmentPostings;
+    use super::{SegmentPostings, binary_search};
+    use test::{self, Bencher};
 
     #[test]
     fn test_empty_segment_postings() {
         let mut postings = SegmentPostings::empty();
         assert!(!postings.advance());
         assert!(!postings.advance());
+    }
+
+
+    #[bench]
+    fn bench_binary_search_optimized(b: &mut Bencher) {
+        let mut arr = [0u32; 128];
+        for i in 0..128 {  arr[i] = i as u32; }
+        b.iter(|| {
+            let n = test::black_box(10);
+            for i in 0..(n * 10) {
+                binary_search(&arr, i);
+            }
+        })
+    }
+
+    #[bench]
+    fn bench_binary_search_standard(b: &mut Bencher) {
+        let n = test::black_box(1000);
+        let mut arr = [0u32; 128];
+        for i in 0..128 {  arr[i] = i as u32; }
+        b.iter(|| {
+            let n = test::black_box(10);
+            for i in 0..(n * 10) {
+                arr.binary_search(&i);
+            }
+        })
     }
 }
