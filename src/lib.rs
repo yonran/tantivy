@@ -58,6 +58,7 @@ extern crate crossbeam;
 extern crate bit_set;
 extern crate futures;
 extern crate futures_cpupool;
+extern crate llvmint;
 
 #[cfg(test)]
 extern crate env_logger;

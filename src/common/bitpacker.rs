@@ -2,7 +2,7 @@ use std::io::Write;
 use std::io;
 use common::serialize::BinarySerializable;
 use std::mem;
-
+use llvmint;
 
 /// Computes the number of bits that will be used for bitpacking.
 ///
@@ -120,11 +120,76 @@ impl BitUnpacker {
         let addr = (idx * self.num_bits) / 8;
         let bit_shift = idx * self.num_bits - addr * 8;
         let val_unshifted_unmasked: u64;
-        debug_assert!(addr + 8 <= self.data_len,
-                      "The fast field field should have been padded with 7 bytes.");
         val_unshifted_unmasked = unsafe { *(self.data_ptr.offset(addr as isize) as *const u64) };
         let val_shifted = (val_unshifted_unmasked >> bit_shift) as u64;
         (val_shifted & self.mask)
+    }
+
+    #[inline(always)]
+    pub fn get_arr(&self, docs: &[u32], output: &mut [u64]) {
+        const margin: usize = 0;
+        let num_docs = docs.len();
+        // {
+        //     let doc = docs[num_docs-1] as usize;
+        //     let addr = (doc * self.num_bits) / 8;
+        //     unsafe { llvmint::prefetch(mem::transmute::<*const u8, *mut i8>(self.data_ptr.offset(addr as isize)), 0i32, 0i32, 1i32); }
+        // }
+        let mut cur = 0;
+        const BUF_SIZE: usize = 4;
+        // let mut doc = [0u32; BUF_SIZE];
+        let mut buf = [0u32; BUF_SIZE];
+        loop {
+            if cur + 4 < num_docs {
+                for j in 0..4 {
+                    let doc = docs[cur] as usize;
+                    buf[j] = doc;
+                }
+                for _ in 0..4 {
+                    let addr = (doc * self.num_bits) / 8;
+                    let val_unshifted_unmasked: u64 = unsafe { *(self.data_ptr.offset(addr as isize) as *const u64) };
+                    let bit_shift = doc * self.num_bits - addr * 8;
+                    unsafe { *output.get_unchecked_mut(cur) = (val_unshifted_unmasked >> bit_shift) as u64; }
+                    output[cur] &= self.mask;
+                    cur += 1;
+                }
+            }
+            else {
+                for i in cur..num_docs {
+                    let doc = docs[i] as usize;
+                    let addr = (doc * self.num_bits) / 8;
+                    let val_unshifted_unmasked: u64 = unsafe { *(self.data_ptr.offset(addr as isize) as *const u64) };
+                    let bit_shift = doc * self.num_bits - addr * 8;
+                    unsafe { *output.get_unchecked_mut(i) = (val_unshifted_unmasked >> bit_shift) as u64; }
+                    output[i] &= self.mask;
+                }
+                break;
+            }
+        }
+        // for i in 0..(num_docs - margin) {
+        //     // {
+        //     //     let doc = docs[i + margin] as usize;
+        //     //     let addr = (doc * self.num_bits) / 8;
+        //     //     unsafe { llvmint::prefetch(mem::transmute::<*const u8, *mut i8>(self.data_ptr.offset(addr as isize)), 0i32, 0i32, 1i32); }
+        //     // }
+        //     let doc = docs[i] as usize;
+        //     let addr = (doc * self.num_bits) / 8;
+        //     let val_unshifted_unmasked: u64 = unsafe { *(self.data_ptr.offset(addr as isize) as *const u64) };
+        //     let bit_shift = doc * self.num_bits - addr * 8;
+        //     // output[i] = (val_unshifted_unmasked >> bit_shift) as u64;
+        //     unsafe { *output.get_unchecked_mut(i) = (val_unshifted_unmasked >> bit_shift) as u64; }
+        //     output[i] &= self.mask;
+        // }   
+        // for i in (num_docs - margin)..num_docs {
+        //     let doc = docs[i] as usize;
+        //     let addr = (doc * self.num_bits) / 8;
+        //     let bit_shift = doc * self.num_bits - addr * 8;
+        //     let val_unshifted_unmasked: u64;
+        //     val_unshifted_unmasked = unsafe { *(self.data_ptr.offset(addr as isize) as *const u64) };
+        //     unsafe { *output.get_unchecked_mut(i) = (val_unshifted_unmasked >> bit_shift) as u64; }
+        // }
+        // for i in 0..docs.len() {
+        //     output[i] &= self.mask;
+        // }
     }
 }
 

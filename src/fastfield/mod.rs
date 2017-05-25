@@ -49,6 +49,7 @@ mod tests {
     use test::Bencher;
     use test;
     use fastfield::FastFieldReader;
+    use rand::distributions::{IndependentSample, Range};
     use rand::Rng;
     use rand::SeedableRng;
     use rand::XorShiftRng;
@@ -275,10 +276,10 @@ mod tests {
         }
     }
 
-    fn generate_permutation() -> Vec<u64> {
+    fn generate_permutation(len: usize) -> Vec<u64> {
         let seed: &[u32; 4] = &[1, 2, 3, 4];
         let mut rng = XorShiftRng::from_seed(*seed);
-        let mut permutation: Vec<u64> = (0u64..1_000_000u64).collect();
+        let mut permutation: Vec<u64> = (0u64..len as u64).collect();
         rng.shuffle(&mut permutation);
         permutation
     }
@@ -286,7 +287,7 @@ mod tests {
     #[test]
     fn test_intfastfield_permutation() {
         let path = Path::new("test");
-        let permutation = generate_permutation();
+        let permutation = generate_permutation(1_000_000);
         let n = permutation.len();
         let mut directory = RAMDirectory::create();
         {
@@ -318,7 +319,7 @@ mod tests {
 
     #[bench]
     fn bench_intfastfield_linear_veclookup(b: &mut Bencher) {
-        let permutation = generate_permutation();
+        let permutation = generate_permutation(1_000_000);
         b.iter(|| {
                    let n = test::black_box(7000u32);
                    let mut a = 0u64;
@@ -331,7 +332,7 @@ mod tests {
 
     #[bench]
     fn bench_intfastfield_veclookup(b: &mut Bencher) {
-        let permutation = generate_permutation();
+        let permutation = generate_permutation(1_000_000);
         b.iter(|| {
                    let n = test::black_box(1000u32);
                    let mut a = 0u64;
@@ -345,7 +346,7 @@ mod tests {
     #[bench]
     fn bench_intfastfield_linear_fflookup(b: &mut Bencher) {
         let path = Path::new("test");
-        let permutation = generate_permutation();
+        let permutation = generate_permutation(1_000_000);
         let mut directory: RAMDirectory = RAMDirectory::create();
         {
             let write: WritePtr = directory.open_write(Path::new("test")).unwrap();
@@ -376,7 +377,7 @@ mod tests {
     #[bench]
     fn bench_intfastfield_fflookup(b: &mut Bencher) {
         let path = Path::new("test");
-        let permutation = generate_permutation();
+        let permutation = generate_permutation(1_000_000);
         let mut directory: RAMDirectory = RAMDirectory::create();
         {
             let write: WritePtr = directory.open_write(Path::new("test")).unwrap();
@@ -401,6 +402,75 @@ mod tests {
                        }
                        a
                    });
+        }
+    }
+
+    fn generate_values(len: usize, from: u64, to: u64) -> Vec<u64> {
+        let seed: &[u32; 4] = &[1, 2, 3, 4];
+        let mut rng = XorShiftRng::from_seed(*seed);
+        let mut values = Vec::with_capacity(len);
+        let range = Range::new(from, to);
+        for _ in 0..len {
+            let val = range.ind_sample(&mut rng);
+            values.push(val);
+        }
+        values
+    }
+
+    const PARTS_LEN: usize = 100;
+
+    #[bench]
+    fn bench_intfastfield_batch(b: &mut Bencher) {
+        let path = Path::new("test");
+        let values = generate_values(10_000_000, 6u64, 10_000u64);
+        let mut directory: RAMDirectory = RAMDirectory::create();
+        {
+            let write: WritePtr = directory.open_write(Path::new("test")).unwrap();
+            let mut serializer = FastFieldSerializer::new(write).unwrap();
+            let mut fast_field_writers = FastFieldsWriter::from_schema(&SCHEMA);
+            for x in &values {
+                add_single_field_doc(&mut fast_field_writers, *FIELD, *x);
+            }
+            fast_field_writers.serialize(&mut serializer).unwrap();
+            serializer.close().unwrap();
+        }
+
+        let mut offsets_blocks = vec!();
+        
+        let seed: &[u32; 4] = &[1, 2, 3, 4];
+        let mut rng = XorShiftRng::from_seed(*seed);
+        let range = Range::new(0, 10_000_000);
+        
+        for _ in 0 .. 100 {
+            let mut offsets = vec!();
+            for _ in 0..PARTS_LEN {
+                offsets.push(range.ind_sample(&mut rng) as u32);
+            }
+            offsets.sort();
+            offsets_blocks.push(offsets);
+        }
+
+        let source = directory.open_read(&path).unwrap();
+        {
+            let fast_field_readers = FastFieldsReader::from_source(source).unwrap();
+            let fast_field_reader: U64FastFieldReader =
+                fast_field_readers.open_reader(*FIELD).unwrap();
+            let mut vals = [064; PARTS_LEN];
+            b.iter(|| {
+                let parts_len = test::black_box(PARTS_LEN);
+                let output = &mut vals[0..parts_len];
+                let mut a = 0u64;
+                for offsets_block in &offsets_blocks {
+                    // for (i, offset) in offsets_block.iter().cloned().enumerate() {
+                    //     output[i] = fast_field_reader.get(offset as u32);
+                    // }
+                    fast_field_reader.get_arr(&offsets_block[..], output);
+                    for val in output.iter() {
+                        a ^= *val;
+                    }
+                }
+                a
+            });
         }
     }
 }
