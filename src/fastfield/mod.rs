@@ -49,9 +49,11 @@ mod tests {
     use test::Bencher;
     use test;
     use fastfield::FastFieldReader;
+    use std::iter;
     use rand::Rng;
     use rand::SeedableRng;
     use rand::XorShiftRng;
+    use rand::distributions::{IndependentSample, Range};
 
     lazy_static! {
         static ref SCHEMA: Schema = {
@@ -402,5 +404,87 @@ mod tests {
                        a
                    });
         }
+    }
+
+
+    #[bench]
+    fn bench_intfastfield_fflookup_manual_batch(b: &mut Bencher) {
+        let path = Path::new("test");
+        let mut directory: RAMDirectory = RAMDirectory::create();
+        let max_docs = 1_000_000;
+        {
+            let write: WritePtr = directory.open_write(Path::new("test")).unwrap();
+            let mut serializer = FastFieldSerializer::new(write).unwrap();
+            let mut fast_field_writers = FastFieldsWriter::from_schema(&SCHEMA);
+            for i in 0u64..max_docs as u64 {
+                add_single_field_doc(&mut fast_field_writers, *FIELD, i % 10_000u64);
+            }
+            fast_field_writers.serialize(&mut serializer).unwrap();
+            serializer.close().unwrap();
+        }
+        let source = directory.open_read(&path).unwrap();
+
+        let mut lookup_docs = vec!();
+        {
+            let seed: &[u32; 4] = &[1, 2, 3, 4];
+            let mut rng = XorShiftRng::from_seed(*seed);
+            let range = Range::new(0, max_docs);
+            for _ in 0..100 {
+                let doc = range.ind_sample(&mut rng);
+                lookup_docs.push(doc as u32);
+            }
+            lookup_docs.sort();
+        }
+
+        let fast_field_readers = FastFieldsReader::from_source(source).unwrap();
+        let fast_field_reader: U64FastFieldReader =
+            fast_field_readers.open_reader(*FIELD).unwrap();
+        b.iter(|| {
+            let mut res = 0u64;
+            for doc in &lookup_docs {
+                res = fast_field_reader.get(*doc);
+            }
+            res
+        });
+    }
+
+
+    #[bench]
+    fn bench_intfastfield_fflookup_batch_batch(b: &mut Bencher) {
+        let path = Path::new("test");
+        let mut directory: RAMDirectory = RAMDirectory::create();
+        let max_docs = 50_000_000;
+        {
+            let write: WritePtr = directory.open_write(Path::new("test")).unwrap();
+            let mut serializer = FastFieldSerializer::new(write).unwrap();
+            let mut fast_field_writers = FastFieldsWriter::from_schema(&SCHEMA);
+            for i in 0u64..max_docs as u64 {
+                add_single_field_doc(&mut fast_field_writers, *FIELD, i % 10_000u64);
+            }
+            fast_field_writers.serialize(&mut serializer).unwrap();
+            serializer.close().unwrap();
+        }
+        let source = directory.open_read(&path).unwrap();
+
+        let mut lookup_docs = vec!();
+        {
+            let seed: &[u32; 4] = &[1, 2, 3, 4];
+            let mut rng = XorShiftRng::from_seed(*seed);
+            let range = Range::new(0, max_docs);
+            for _ in 0..100 {
+                let doc = range.ind_sample(&mut rng);
+                lookup_docs.push(doc as u32);
+            }
+            lookup_docs.sort();
+        }
+
+        let fast_field_readers = FastFieldsReader::from_source(source).unwrap();
+        let fast_field_reader: U64FastFieldReader =
+            fast_field_readers.open_reader(*FIELD).unwrap();
+        
+        let mut buffer: Vec<u64> = iter::repeat(0u64).take(lookup_docs.len()).collect();
+        b.iter(|| {
+            fast_field_reader.get_batch(&lookup_docs, &mut buffer);
+        });
     }
 }

@@ -125,12 +125,39 @@ impl<Data> BitUnpacker<Data>
         let addr_in_bits = idx * num_bits;
         let addr = addr_in_bits >> 3;
         let bit_shift = addr_in_bits & 7;
-        debug_assert!(addr + 8 <= data.len(),
-                      "The fast field field should have been padded with 7 bytes.");
+        assert!(addr + 8 <= data.len(), "The fast field field should have been padded with 7 bytes.");
         let val_unshifted_unmasked: u64 =
             unsafe { *(data.as_ptr().offset(addr as isize) as *const u64) };
         let val_shifted = (val_unshifted_unmasked >> bit_shift) as u64;
         (val_shifted & mask)
+    }
+
+    pub fn get_batch(&self, indices: &[u32], add: u64, outputs: &mut [u64]) {
+        assert_eq!(indices.len(), outputs.len());
+        if self.num_bits == 0 {
+            for el in outputs.iter_mut() {
+                *el = 0u64;
+            } 
+            return;
+        }
+
+        let data: &[u8] = &*self.data;
+        let num_bits = self.num_bits;
+        let mask = self.mask;
+
+        for (idx_ref, output) in indices.iter().zip(outputs.iter_mut()) {
+            let idx = *idx_ref as usize;
+            let addr_in_bits = idx * num_bits;
+            let addr = addr_in_bits >> 3;
+            let bit_shift = addr_in_bits & 7;
+            let val_unshifted_unmasked: u64 =
+                unsafe { *(data.as_ptr().offset(addr as isize) as *const u64) };
+            *output = (val_unshifted_unmasked >> bit_shift) as u64;
+        }
+
+        for output in outputs.iter_mut() {
+            *output = (*output & mask) + add;
+        }
     }
 }
 

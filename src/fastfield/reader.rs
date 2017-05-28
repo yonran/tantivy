@@ -28,6 +28,13 @@ pub trait FastFieldReader: Sized {
     /// This accessor should return as fast as possible.
     fn get(&self, doc: DocId) -> Self::ValueType;
 
+    fn get_batch(&self, docs: &[DocId], dest: &mut [Self::ValueType]) {
+        for i in 0..docs.len() {
+            let doc = docs[i];
+            dest[i] = self.get(doc);
+        }
+    }
+
 
     /// Opens a fast field given a source.
     fn open(source: ReadOnlySource) -> Self;
@@ -70,6 +77,10 @@ impl FastFieldReader for U64FastFieldReader {
 
     fn get(&self, doc: DocId) -> u64 {
         self.min_value + self.bit_unpacker.get(doc as usize)
+    }
+
+    fn get_batch(&self, docs: &[DocId], dest: &mut [Self::ValueType]) {
+        self.bit_unpacker.get_batch(docs, self.min_value, dest);
     }
 
     fn is_enabled(field_type: &FieldType) -> bool {
@@ -168,6 +179,7 @@ impl FastFieldReader for I64FastFieldReader {
     fn get(&self, doc: DocId) -> i64 {
         common::u64_to_i64(self.underlying.get(doc))
     }
+
 
     /// Opens a new fast field reader given a read only source.
     ///
