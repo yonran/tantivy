@@ -78,7 +78,6 @@ use schema::{Field, Term};
 use common::BinarySerializable;
 use directory::ReadOnlySource;
 
-
 pub use self::merger::TermMerger;
 
 
@@ -99,7 +98,6 @@ pub use self::streamdict::{TermDictionaryImpl, TermDictionaryBuilderImpl, TermSt
 mod merger;
 use std::io;
 
-
 /// Dictionary associating sorted `&[u8]` to values
 pub trait TermDictionary<'a, V>
     where V: BinarySerializable + Default + 'a,
@@ -108,7 +106,7 @@ pub trait TermDictionary<'a, V>
     /// Streamer type associated to the term dictionary
     type Streamer: TermStreamer<V> + 'a;
 
-    /// StreamerBuilder type associated to the term dictionary
+/// StreamerBuilder type associated to the term dictionary
     type StreamBuilder: TermStreamerBuilder<V, Streamer = Self::Streamer> + 'a;
 
     /// Opens a `TermDictionary` given a data source.
@@ -119,21 +117,11 @@ pub trait TermDictionary<'a, V>
 
     /// Returns a range builder, to stream all of the terms
     /// within an interval.
-    fn range(&'a self) -> Self::StreamBuilder;
-
-    /// A stream of all the sorted terms. [See also `.stream_field()`](#method.stream_field)
-    fn stream(&'a self) -> Self::Streamer {
-        self.range().into_stream()
-    }
+    fn range(&'a self, field: Field) -> Self::StreamBuilder;
 
     /// A stream of all the sorted terms in the given field.
     fn stream_field(&'a self, field: Field) -> Self::Streamer {
-        let start_term = Term::from_field_text(field, "");
-        let stop_term = Term::from_field_text(Field(field.0 + 1), "");
-        self.range()
-            .ge(start_term.as_slice())
-            .lt(stop_term.as_slice())
-            .into_stream()
+        self.range(field).into_stream()
     }
 }
 
@@ -231,7 +219,7 @@ mod tests {
     use super::{TermDictionaryImpl, TermDictionaryBuilderImpl, TermStreamerImpl};
     use directory::{RAMDirectory, Directory, ReadOnlySource};
     use std::path::PathBuf;
-    use schema::{Term, SchemaBuilder, Document, TEXT};
+    use schema::{Field, Term, SchemaBuilder, Document, TEXT};
     use core::Index;
     use std::str;
     use termdict::TermStreamer;
@@ -245,38 +233,44 @@ mod tests {
     fn test_term_dictionary() {
         let mut directory = RAMDirectory::create();
         let path = PathBuf::from("TermDictionary");
+        let term_abc = Term::from_field_text(Field(0), "abc");
+        let term_abcd = Term::from_field_text(Field(0), "abcd");
         {
             let write = directory.open_write(&path).unwrap();
             let mut term_dictionary_builder = TermDictionaryBuilderImpl::new(write).unwrap();
-            term_dictionary_builder
-                .insert("abc".as_bytes(), &34u32)
-                .unwrap();
-            term_dictionary_builder
-                .insert("abcd".as_bytes(), &346u32)
-                .unwrap();
+            {
+                term_dictionary_builder
+                    .insert(term_abc.as_slice(), &34u32)
+                    .unwrap();
+            }
+            {
+                term_dictionary_builder
+                    .insert(term_abcd.as_slice(), &346u32)
+                    .unwrap();
+            }
             term_dictionary_builder.finish().unwrap();
         }
         let source = directory.open_read(&path).unwrap();
         let term_dict: TermDictionaryImpl<u32> = TermDictionaryImpl::from_source(source).unwrap();
-        assert_eq!(term_dict.get("abc"), Some(34u32));
-        assert_eq!(term_dict.get("abcd"), Some(346u32));
-        let mut stream = term_dict.stream();
+        assert_eq!(term_dict.get(term_abc.as_slice()), Some(34u32));
+        assert_eq!(term_dict.get(term_abcd.as_slice()), Some(346u32));
+        let mut stream = term_dict.stream_field(Field(0));
         {
             {
                 let (k, v) = stream.next().unwrap();
-                assert_eq!(k.as_ref(), "abc".as_bytes());
+                assert_eq!(k.as_ref(), term_abc.as_slice());
                 assert_eq!(v, &34u32);
             }
-            assert_eq!(stream.key(), "abc".as_bytes());
+            assert_eq!(stream.key(), term_abc.as_slice());
             assert_eq!(*stream.value(), 34u32);
         }
         {
             {
                 let (k, v) = stream.next().unwrap();
-                assert_eq!(k.as_slice(), "abcd".as_bytes());
+                assert_eq!(k.as_slice(), term_abcd.as_slice());
                 assert_eq!(v, &346u32);
             }
-            assert_eq!(stream.key(), "abcd".as_bytes());
+            assert_eq!(stream.key(), term_abcd.as_slice());
             assert_eq!(*stream.value(), 346u32);
         }
         assert!(!stream.advance());
@@ -319,7 +313,7 @@ mod tests {
         }
         index.load_searchers().unwrap();
         let searcher = index.searcher();
-        let mut term_it = searcher.terms();
+        let mut term_it = searcher.terms(text_field);
         let mut term_string = String::new();
         while term_it.advance() {
             let term = Term::from_bytes(term_it.key());
@@ -331,13 +325,14 @@ mod tests {
 
     #[test]
     fn test_term_dictionary_stream() {
-        let ids: Vec<_> = (0u32..10_000u32)
+        let ids: Vec<(Term, u32)> = (0u32..10_000u32)
             .map(|i| (format!("doc{:0>6}", i), i))
+            .map(|(s, i)| (Term::from_field_text(Field(0), &s), i))
             .collect();
         let buffer: Vec<u8> = {
             let mut term_dictionary_builder = TermDictionaryBuilderImpl::new(vec![]).unwrap();
             for &(ref id, ref i) in &ids {
-                term_dictionary_builder.insert(id.as_bytes(), i).unwrap();
+                term_dictionary_builder.insert(id.as_slice(), i).unwrap();
             }
             term_dictionary_builder.finish().unwrap()
         };
@@ -345,29 +340,30 @@ mod tests {
         let term_dictionary: TermDictionaryImpl<u32> = TermDictionaryImpl::from_source(source)
             .unwrap();
         {
-            let mut streamer = term_dictionary.stream();
+            let mut streamer = term_dictionary.stream_field(Field(0));
             let mut i = 0;
             while let Some((streamer_k, streamer_v)) = streamer.next() {
                 let &(ref key, ref v) = &ids[i];
-                assert_eq!(streamer_k.as_ref(), key.as_bytes());
+                assert_eq!(streamer_k.as_slice(), key.as_slice());
                 assert_eq!(streamer_v, v);
                 i += 1;
             }
         }
 
         let &(ref key, ref _v) = &ids[2047];
-        term_dictionary.get(key.as_bytes());
+        assert_eq!(term_dictionary.get(key.as_slice()), Some(2047));
     }
 
     #[test]
     fn test_stream_range() {
-        let ids: Vec<_> = (0u32..50_000u32)
+        let ids: Vec<(Term, u32)> = (0u32..50_000u32)
             .map(|i| (format!("doc{:0>6}", i), i))
+            .map(|(s, i)| (Term::from_field_text(Field(0), &s), i))
             .collect();
         let buffer: Vec<u8> = {
             let mut term_dictionary_builder = TermDictionaryBuilderImpl::new(vec![]).unwrap();
-            for &(ref id, ref i) in &ids {
-                term_dictionary_builder.insert(id.as_bytes(), i).unwrap();
+            for &(ref term, ref i) in &ids {
+                term_dictionary_builder.insert(term.as_slice(), i).unwrap();
             }
             term_dictionary_builder.finish().unwrap()
         };
@@ -380,13 +376,13 @@ mod tests {
             for i in (0..20).chain(6000..8_000) {
                 let &(ref target_key, _) = &ids[i];
                 let mut streamer = term_dictionary
-                    .range()
-                    .ge(target_key.as_bytes())
+                    .range(Field(0))
+                    .ge(target_key.as_slice())
                     .into_stream();
                 for j in 0..3 {
                     let (streamer_k, streamer_v) = streamer.next().unwrap();
                     let &(ref key, ref v) = &ids[i + j];
-                    assert_eq!(str::from_utf8(streamer_k.as_ref()).unwrap(), key);
+                    assert_eq!(streamer_k.as_slice(), key.as_slice());
                     assert_eq!(streamer_v, v);
                 }
             }
@@ -396,13 +392,13 @@ mod tests {
             for i in (0..20).chain((BLOCK_SIZE - 10..BLOCK_SIZE + 10)) {
                 let &(ref target_key, _) = &ids[i];
                 let mut streamer = term_dictionary
-                    .range()
-                    .gt(target_key.as_bytes())
+                    .range(Field(0))
+                    .gt(target_key.as_slice())
                     .into_stream();
                 for j in 0..3 {
                     let (streamer_k, streamer_v) = streamer.next().unwrap();
                     let &(ref key, ref v) = &ids[i + j + 1];
-                    assert_eq!(streamer_k.as_ref(), key.as_bytes());
+                    assert_eq!(streamer_k.as_slice(), key.as_slice());
                     assert_eq!(streamer_v, v);
                 }
             }
@@ -414,9 +410,9 @@ mod tests {
                     let &(ref fst_key, _) = &ids[i];
                     let &(ref last_key, _) = &ids[i + j];
                     let mut streamer = term_dictionary
-                        .range()
-                        .ge(fst_key.as_bytes())
-                        .lt(last_key.as_bytes())
+                        .range(Field(0))
+                        .ge(fst_key.as_slice())
+                        .lt(last_key.as_slice())
                         .into_stream();
                     for _ in 0..j {
                         assert!(streamer.next().is_some());
@@ -433,7 +429,7 @@ mod tests {
         let buffer: Vec<u8> = {
             let mut term_dictionary_builder = TermDictionaryBuilderImpl::new(vec![]).unwrap();
             for i in 0u8..10u8 {
-                let number_arr = [i; 1];
+                let number_arr: [u8; 5]= [0, 0, 0, 0, i];
                 term_dictionary_builder.insert(&number_arr, &i).unwrap();
             }
             term_dictionary_builder.finish().unwrap()
@@ -450,24 +446,24 @@ mod tests {
             res
         };
         {
-            let range = term_dictionary.range().ge([2u8]).into_stream();
+            let range = term_dictionary.range(Field(0)).ge([0, 0, 0, 0, 2u8]).into_stream();
             assert_eq!(value_list(range),
                        vec![2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8]);
         }
         {
-            let range = term_dictionary.range().gt([2u8]).into_stream();
+            let range = term_dictionary.range(Field(0)).gt([0, 0, 0, 0, 2u8]).into_stream();
             assert_eq!(value_list(range), vec![3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8]);
         }
         {
-            let range = term_dictionary.range().lt([6u8]).into_stream();
+            let range = term_dictionary.range(Field(0)).lt([0, 0, 0, 0, 6u8]).into_stream();
             assert_eq!(value_list(range), vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8]);
         }
         {
-            let range = term_dictionary.range().le([6u8]).into_stream();
+            let range = term_dictionary.range(Field(0)).le([0, 0, 0, 0, 6u8]).into_stream();
             assert_eq!(value_list(range), vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8]);
         }
         {
-            let range = term_dictionary.range().ge([0u8]).lt([5u8]).into_stream();
+            let range = term_dictionary.range(Field(0)).ge([0, 0, 0, 0, 0u8]).lt([0, 0, 0, 0, 5u8]).into_stream();
             assert_eq!(value_list(range), vec![0u8, 1u8, 2u8, 3u8, 4u8]);
         }
     }

@@ -4,9 +4,11 @@ use fst::raw::Fst;
 use directory::ReadOnlySource;
 use common::BinarySerializable;
 use std::marker::PhantomData;
+use schema::{Field, Term};
 use postings::TermInfo;
 use termdict::{TermDictionary, TermDictionaryBuilder};
 use super::{TermStreamerImpl, TermStreamerBuilderImpl};
+use termdict::TermStreamerBuilder;
 
 fn convert_fst_error(e: fst::Error) -> io::Error {
     io::Error::new(io::ErrorKind::Other, e)
@@ -147,7 +149,11 @@ impl<'a, V> TermDictionary<'a, V> for TermDictionaryImpl<V>
                  })
     }
 
-    fn range(&self) -> TermStreamerBuilderImpl<V> {
+    fn range(&self, field: Field) ->  TermStreamerBuilderImpl<V> {
+        let start_term = Term::from_field_text(field, "");
+        let stop_term = Term::from_field_text(Field(field.0 + 1), "");
         TermStreamerBuilderImpl::new(self, self.fst_index.range())
+            .ge(start_term.as_slice())
+            .lt(stop_term.as_slice())
     }
 }

@@ -244,7 +244,11 @@ impl<'a, V> TermDictionary<'a, V> for TermDictionaryImpl<V>
 
     /// Returns a range builder, to stream all of the terms
     /// within an interval.
-    fn range(&'a self) -> Self::StreamBuilder {
+    fn range(&'a self, field: Field) -> Self::StreamBuilder {
+        let start_term = Term::from_field_text(field, "");
+        let stop_term = Term::from_field_text(Field(field.0 + 1), "");
         Self::StreamBuilder::new(self)
+            .ge(start_term.as_slice())
+            .lt(stop_term.as_slice())
     }
 }

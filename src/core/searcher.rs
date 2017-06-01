@@ -1,6 +1,6 @@
 use Result;
 use core::SegmentReader;
-use schema::Document;
+use schema::{Document, Field};
 use collector::Collector;
 use common::TimerTree;
 use query::Query;
@@ -73,8 +73,8 @@ impl Searcher {
     ///
     /// # Warning
     /// This API is very likely to change in the future.
-    pub fn terms(&self) -> TermMerger<TermInfo> {
-        TermMerger::from(self.segment_readers())
+    pub fn terms(&self, field: Field) -> TermMerger<TermInfo> {
+        TermMerger::for_field(self.segment_readers(), field)
     }
 }
 

@@ -6,7 +6,7 @@ use postings::TermInfo;
 use std::cmp::Ordering;
 use termdict::TermStreamer;
 use termdict::TermDictionary;
-use schema::Term;
+use schema::{Term, Field};
 
 pub struct HeapItem<'a, V>
     where V: 'a + BinarySerializable + Default
@@ -53,6 +53,15 @@ pub struct TermMerger<'a, V>
 {
     heap: BinaryHeap<HeapItem<'a, V>>,
     current_streamers: Vec<HeapItem<'a, V>>,
+}
+
+impl<'a> TermMerger<'a, TermInfo> {
+    pub fn for_field(segment_readers: &'a [SegmentReader], field: Field) -> TermMerger<'a, TermInfo> {
+        TermMerger::new(segment_readers
+                .iter()
+                .map(|reader| reader.terms().stream_field(field))
+                .collect::<Vec<_>>())
+    }
 }
 
 impl<'a, V> TermMerger<'a, V>
@@ -141,12 +150,3 @@ impl<'a, V> TermMerger<'a, V>
 }
 
 
-
-impl<'a> From<&'a [SegmentReader]> for TermMerger<'a, TermInfo> {
-    fn from(segment_readers: &'a [SegmentReader]) -> TermMerger<'a, TermInfo> {
-        TermMerger::new(segment_readers
-                            .iter()
-                            .map(|reader| reader.terms().stream())
-                            .collect())
-    }
-}
