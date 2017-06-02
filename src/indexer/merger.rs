@@ -17,7 +17,6 @@ use fastfield::FastFieldSerializer;
 use fastfield::FastFieldReader;
 use store::StoreWriter;
 use std::cmp::{min, max};
-use schema::Term;
 use termdict::TermStreamer;
 
 pub struct IndexMerger {
@@ -191,7 +190,7 @@ impl IndexMerger {
 
     fn write_postings(&self, serializer: &mut PostingsSerializer) -> Result<()> {
 
-       
+
         let mut delta_position_computer = DeltaPositionComputer::new();
 
         let mut max_doc = 0;
@@ -215,9 +214,9 @@ impl IndexMerger {
         let schema = self.schema.clone();
 
         for (field_id, field_entry) in schema.fields().iter().enumerate() {
-            
+
             let field = Field(field_id as u32);
-            
+
             if !field_entry.is_indexed() {
                 continue;
             }
@@ -232,9 +231,9 @@ impl IndexMerger {
             // it is perfectly safe to call `.new_field`
             // even if there is no postings associated.
             serializer.new_field(field);
-            
+
             let mut merged_terms = TermMerger::for_field(&self.readers[..], field);
-             
+
             while merged_terms.advance() {
 
                 // Create the total list of doc ids
@@ -247,9 +246,9 @@ impl IndexMerger {
                 // - Segment 2's doc ids become  [seg0.max_doc + seg1.max_doc,
                 //                                seg0.max_doc + seg1.max_doc + seg2.max_doc]
                 // ...
-                let term = Term::wrap(merged_terms.key());
+                let term = merged_terms.key();
                 assert_eq!(term.field(), field);
-                
+
                 // Let's compute the list of non-empty posting lists
                 let segment_postings: Vec<_> = merged_terms
                     .current_kvs()
@@ -281,7 +280,7 @@ impl IndexMerger {
 
                 // We know that there is at least one document containing
                 // the term, so we add it.
-                serializer.new_term(term.as_ref())?;
+                serializer.new_term(term)?;
 
                 // We can now serialize this postings, by pushing each document to the
                 // postings serializer.
@@ -311,7 +310,7 @@ impl IndexMerger {
                 // closing the term.
                 serializer.close_term()?;
             }
-            
+
         }
 
         Ok(())

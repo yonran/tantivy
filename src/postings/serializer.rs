@@ -1,10 +1,7 @@
 use Result;
 use termdict::TermDictionaryBuilderImpl;
 use super::TermInfo;
-use schema::Field;
-use schema::FieldEntry;
-use schema::FieldType;
-use schema::Schema;
+use schema::{Field, Term, FieldEntry, FieldType, Schema};
 use schema::TextIndexingOptions;
 use directory::WritePtr;
 use compression::{NUM_DOCS_PER_BLOCK, BlockEncoder, CompositeEncoder};
@@ -123,7 +120,7 @@ impl PostingsSerializer {
     /// * term - the term. It needs to come after the previous term according
     ///   to the lexicographical order.
     /// * doc_freq - return the number of document containing the term.
-    pub fn new_term(&mut self, term: &[u8]) -> io::Result<()> {
+    pub fn new_term(&mut self, term: Term<&[u8]>) -> io::Result<()> {
         if self.term_open {
             panic!("Called new_term, while the previous term was not closed.");
         }

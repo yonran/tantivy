@@ -62,7 +62,8 @@ mod tests {
         let mut segment = index.new_segment();
         let mut posting_serializer = PostingsSerializer::open(&mut segment).unwrap();
         posting_serializer.new_field(text_field);
-        posting_serializer.new_term("abc".as_bytes()).unwrap();
+        let abc = Term::wrap("abc".as_bytes());
+        posting_serializer.new_term(abc).unwrap();
         for doc_id in 0u32..3u32 {
             let positions = vec![1, 2, 3, 2];
             posting_serializer.write_doc(doc_id, 2, &positions).unwrap();

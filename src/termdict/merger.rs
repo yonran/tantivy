@@ -6,14 +6,12 @@ use termdict::TermStreamer;
 use termdict::TermDictionary;
 use schema::{Term, Field};
 
-pub struct HeapItem<'a>
-{
+pub struct HeapItem<'a> {
     pub streamer: TermStreamerImpl<'a>,
     pub segment_ord: usize,
 }
 
-impl<'a> PartialEq for HeapItem<'a>
-{
+impl<'a> PartialEq for HeapItem<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.segment_ord == other.segment_ord
     }
@@ -21,15 +19,13 @@ impl<'a> PartialEq for HeapItem<'a>
 
 impl<'a> Eq for HeapItem<'a> {}
 
-impl<'a> PartialOrd for HeapItem<'a>
-{
+impl<'a> PartialOrd for HeapItem<'a> {
     fn partial_cmp(&self, other: &HeapItem<'a>) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a> Ord for HeapItem<'a>
-{
+impl<'a> Ord for HeapItem<'a> {
     fn cmp(&self, other: &HeapItem<'a>) -> Ordering {
         (&other.streamer.key(), &other.segment_ord).cmp(&(&self.streamer.key(), &self.segment_ord))
     }
@@ -42,21 +38,19 @@ impl<'a> Ord for HeapItem<'a>
 /// - the term
 /// - a slice with the ordinal of the segments containing
 /// the terms.
-pub struct TermMerger<'a>
-{
+pub struct TermMerger<'a> {
     heap: BinaryHeap<HeapItem<'a>>,
     current_streamers: Vec<HeapItem<'a>>,
 }
 
-impl<'a> TermMerger<'a>
-{
-    /// Create a term merger that contains all of the terms from 
+impl<'a> TermMerger<'a> {
+    /// Create a term merger that contains all of the terms from
     /// a set of `SegmentReader` for a given field.
     pub fn for_field(segment_readers: &'a [SegmentReader], field: Field) -> TermMerger<'a> {
         TermMerger::new(segment_readers
-                .iter()
-                .map(|reader| reader.terms().stream_field(field))
-                .collect::<Vec<_>>())
+                            .iter()
+                            .map(|reader| reader.terms().stream_field(field))
+                            .collect::<Vec<_>>())
     }
 
     fn new(streams: Vec<TermStreamerImpl<'a>>) -> TermMerger<'a> {
@@ -116,7 +110,7 @@ impl<'a> TermMerger<'a>
     /// This method may be called
     /// iff advance() has been called before
     /// and "true" was returned.
-    pub fn key(&self) -> &[u8] {
+    pub fn key(&self) -> Term<&[u8]> {
         self.current_streamers[0].streamer.key()
     }
 
@@ -134,11 +128,9 @@ impl<'a> TermMerger<'a>
     #[allow(should_implement_trait)]
     pub fn next(&mut self) -> Option<Term<&[u8]>> {
         if self.advance() {
-            Some(Term::wrap(self.current_streamers[0].streamer.key()))
+            Some(self.current_streamers[0].streamer.key())
         } else {
             None
         }
     }
 }
-
-

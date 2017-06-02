@@ -15,6 +15,7 @@ const INT_TERM_LEN: usize = 4 + 8;
 #[derive(Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Term<B = Vec<u8>>(B) where B: AsRef<[u8]>;
 
+
 impl Term {
     /// Builds a term given a field, and a u64-value
     ///
@@ -97,16 +98,9 @@ impl Term {
         self.0.resize(4, 0u8);
         self.0.extend(text.as_bytes());
     }
-
-    /// Builds a term from its byte representation.
-    ///
-    /// If you want to build a field for a given `str`,
-    /// you want to use `from_field_text`.
-    #[cfg(test)]
-    pub(crate) fn from_bytes(data: &[u8]) -> Term {
-        Term(Vec::from(data))
-    }
 }
+
+impl<B> Copy for Term<B> where B: AsRef<[u8]> + Copy {}
 
 impl<B> Term<B>
     where B: AsRef<[u8]>
@@ -162,6 +156,11 @@ impl<B> Term<B>
     /// Returns the underlying `&[u8]`
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_ref()
+    }
+
+    /// Converts from Term<T> to Term<&[u8]>.
+    pub fn get_ref(&self) -> Term<&[u8]> {
+        Term::wrap(self.as_slice())
     }
 }
 

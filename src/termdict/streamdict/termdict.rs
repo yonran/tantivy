@@ -125,7 +125,7 @@ fn open_fst_index(source: ReadOnlySource) -> io::Result<fst::Map> {
     Ok(fst::Map::from(match source {
                           ReadOnlySource::Anonymous(data) => {
                               Fst::from_shared_bytes(data.data, data.start, data.len)
-                                       .map_err(convert_fst_error)?
+                                  .map_err(convert_fst_error)?
                           }
                           ReadOnlySource::Mmap(mmap_readonly) => {
                               Fst::from_mmap(mmap_readonly).map_err(convert_fst_error)?
@@ -134,14 +134,12 @@ fn open_fst_index(source: ReadOnlySource) -> io::Result<fst::Map> {
 }
 
 /// See [`TermDictionary`](./trait.TermDictionary.html)
-pub struct TermDictionaryImpl
-{
+pub struct TermDictionaryImpl {
     stream_data: ReadOnlySource,
     fst_index: fst::Map,
 }
 
-impl TermDictionaryImpl
-{
+impl TermDictionaryImpl {
     pub(crate) fn stream_data(&self) -> &[u8] {
         self.stream_data.as_slice()
     }
@@ -193,8 +191,7 @@ impl TermDictionaryImpl
 }
 
 
-impl<'a> TermDictionary<'a> for TermDictionaryImpl
-{
+impl<'a> TermDictionary<'a> for TermDictionaryImpl {
     type Streamer = TermStreamerImpl<'a>;
 
     type StreamBuilder = TermStreamerBuilderImpl<'a>;

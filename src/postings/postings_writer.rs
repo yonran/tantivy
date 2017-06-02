@@ -1,6 +1,5 @@
 use DocId;
-use schema::Term;
-use schema::FieldValue;
+use schema::{Term, FieldValue};
 use postings::PostingsSerializer;
 use std::io;
 use postings::Recorder;
@@ -79,8 +78,11 @@ impl<'a> MultiFieldPostingsWriter<'a> {
     /// postings serializer.
     #[allow(needless_range_loop)]
     pub fn serialize(&self, serializer: &mut PostingsSerializer) -> Result<()> {
-        let mut term_offsets: Vec<(&[u8], u32)> = self.term_index.iter().collect();
-        term_offsets.sort_by_key(|&(k, _v)| k);
+        let mut term_offsets: Vec<(Term<&[u8]>, u32)> = self.term_index
+            .iter()
+            .map(|(term_bytes, addr)| (Term::wrap(term_bytes), addr))
+            .collect();
+        term_offsets.sort_by(|left, right| left.0.cmp(&right.0));
 
         let mut offsets: Vec<(Field, usize)> = vec![];
         let term_offsets_it = term_offsets
@@ -137,7 +139,7 @@ pub trait PostingsWriter {
     /// The actual serialization format is handled by the `PostingsSerializer`.
     fn serialize(&self,
                  field: Field,
-                 term_addrs: &[(&[u8], u32)],
+                 term_addrs: &[(Term<&[u8]>, u32)],
                  serializer: &mut PostingsSerializer,
                  heap: &Heap)
                  -> io::Result<()>;
@@ -228,16 +230,16 @@ impl<'a, Rec: Recorder + 'static> PostingsWriter for SpecializedPostingsWriter<'
 
     fn serialize(&self,
                  field: Field,
-                 term_addrs: &[(&[u8], u32)],
+                 term_addrs: &[(Term<&[u8]>, u32)],
                  serializer: &mut PostingsSerializer,
                  heap: &Heap)
                  -> io::Result<()> {
         serializer.new_field(field);
-        for &(term_bytes, addr) in term_addrs {
+        for &(ref term, addr) in term_addrs {
             let recorder: &mut Rec = self.heap.get_mut_ref(addr);
-            try!(serializer.new_term(term_bytes));
-            try!(recorder.serialize(addr, serializer, heap));
-            try!(serializer.close_term());
+            serializer.new_term(*term)?;
+            recorder.serialize(addr, serializer, heap)?;
+            serializer.close_term()?;
         }
         Ok(())
     }

@@ -31,7 +31,7 @@ impl<W> TermDictionaryBuilderImpl<W>
     /// to insert_key and insert_value.
     ///
     /// Prefer using `.insert(key, value)`
-    pub(crate) fn insert_key(&mut self, key: &[u8]) -> io::Result<()> {
+    pub(crate) fn insert_key<K: AsRef<[u8]>>(&mut self, key: Term<K>) -> io::Result<()> {
         self.fst_builder
             .insert(key, self.data.len() as u64)
             .map_err(convert_fst_error)?;
@@ -58,7 +58,7 @@ impl<W> TermDictionaryBuilder<W> for TermDictionaryBuilderImpl<W>
            })
     }
 
-    fn insert<K: AsRef<[u8]>>(&mut self, key_ref: K, value: &TermInfo) -> io::Result<()> {
+    fn insert<K: AsRef<[u8]>>(&mut self, key_ref: Term<K>, value: &TermInfo) -> io::Result<()> {
         let key = key_ref.as_ref();
         self.fst_builder
             .insert(key, self.data.len() as u64)
@@ -91,14 +91,12 @@ fn open_fst_index(source: ReadOnlySource) -> io::Result<fst::Map> {
 }
 
 /// See [`TermDictionary`](./trait.TermDictionary.html)
-pub struct TermDictionaryImpl
-{
+pub struct TermDictionaryImpl {
     fst_index: fst::Map,
     values_mmap: ReadOnlySource,
 }
 
-impl TermDictionaryImpl
-{
+impl TermDictionaryImpl {
     /// Deserialize and returns the value at address `offset`
     pub(crate) fn read_value(&self, offset: u64) -> io::Result<TermInfo> {
         let buffer = self.values_mmap.as_slice();
@@ -108,8 +106,7 @@ impl TermDictionaryImpl
 }
 
 
-impl<'a> TermDictionary<'a> for TermDictionaryImpl
-{
+impl<'a> TermDictionary<'a> for TermDictionaryImpl {
     type Streamer = TermStreamerImpl<'a>;
 
     type StreamBuilder = TermStreamerBuilderImpl<'a>;
@@ -138,7 +135,7 @@ impl<'a> TermDictionary<'a> for TermDictionaryImpl
                  })
     }
 
-    fn range(&self, field: Field) ->  TermStreamerBuilderImpl {
+    fn range(&self, field: Field) -> TermStreamerBuilderImpl {
         let start_term = Term::from_field_text(field, "");
         let stop_term = Term::from_field_text(Field(field.0 + 1), "");
         TermStreamerBuilderImpl::new(self, self.fst_index.range())

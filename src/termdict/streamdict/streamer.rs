@@ -8,8 +8,7 @@ use postings::TermInfo;
 
 pub(crate) fn stream_before<'a>(term_dictionary: &'a TermDictionaryImpl,
                                 target_key: &[u8])
-    -> TermStreamerImpl<'a>
-{
+                                -> TermStreamerImpl<'a> {
     let (prev_key, offset) = term_dictionary.strictly_previous_key(target_key.as_ref());
     let offset: usize = offset as usize;
     TermStreamerImpl {
@@ -20,8 +19,7 @@ pub(crate) fn stream_before<'a>(term_dictionary: &'a TermDictionaryImpl,
 }
 
 /// See [`TermStreamerBuilder`](./trait.TermStreamerBuilder.html)
-pub struct TermStreamerBuilderImpl<'a>
-{
+pub struct TermStreamerBuilderImpl<'a> {
     term_dictionary: &'a TermDictionaryImpl,
     origin: usize,
     offset_from: usize,
@@ -29,8 +27,7 @@ pub struct TermStreamerBuilderImpl<'a>
     current_key: Vec<u8>,
 }
 
-impl<'a> TermStreamerBuilder for TermStreamerBuilderImpl<'a>
-{
+impl<'a> TermStreamerBuilder for TermStreamerBuilderImpl<'a> {
     type Streamer = TermStreamerImpl<'a>;
 
     /// Limit the range to terms greater or equal to the bound
@@ -92,9 +89,9 @@ impl<'a> TermStreamerBuilder for TermStreamerBuilderImpl<'a>
 /// key in the stream matching a given predicate.
 ///
 /// returns (start offset, the data required to load the value)
-fn get_offset<'a, P: Fn(&[u8]) -> bool>(predicate: P, mut streamer: TermStreamerImpl)
-                                           -> (usize, Vec<u8>)
-{
+fn get_offset<'a, P: Fn(&[u8]) -> bool>(predicate: P,
+                                        mut streamer: TermStreamerImpl)
+                                        -> (usize, Vec<u8>) {
     let mut prev: &[u8] = streamer.cursor;
 
     let mut prev_data: Vec<u8> = streamer.current_key.clone();
@@ -110,8 +107,7 @@ fn get_offset<'a, P: Fn(&[u8]) -> bool>(predicate: P, mut streamer: TermStreamer
     (prev.as_ptr() as usize, prev_data)
 }
 
-impl<'a> TermStreamerBuilderImpl<'a>
-{
+impl<'a> TermStreamerBuilderImpl<'a> {
     pub(crate) fn new(term_dictionary: &'a TermDictionaryImpl) -> Self {
         let data = term_dictionary.stream_data();
         let origin = data.as_ptr() as usize;
@@ -126,16 +122,14 @@ impl<'a> TermStreamerBuilderImpl<'a>
 }
 
 /// See [`TermStreamer`](./trait.TermStreamer.html)
-pub struct TermStreamerImpl<'a>
-{
+pub struct TermStreamerImpl<'a> {
     cursor: &'a [u8],
     current_key: Vec<u8>,
     current_value: TermInfo,
 }
 
 
-impl<'a> TermStreamerImpl<'a>
-{
+impl<'a> TermStreamerImpl<'a> {
     pub(crate) fn extract_value(self) -> TermInfo {
         self.current_value
     }
@@ -156,8 +150,7 @@ fn deserialize_vint(data: &mut &[u8]) -> u64 {
     res
 }
 
-impl<'a> TermStreamer for TermStreamerImpl<'a>
-{
+impl<'a> TermStreamer for TermStreamerImpl<'a> {
     fn advance(&mut self) -> bool {
         if self.cursor.is_empty() {
             return false;
