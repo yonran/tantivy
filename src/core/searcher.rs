@@ -9,7 +9,6 @@ use DocAddress;
 use schema::Term;
 use termdict::TermMerger;
 use std::fmt;
-use postings::TermInfo;
 
 
 /// Holds a list of `SegmentReader`s ready for search.
@@ -73,7 +72,7 @@ impl Searcher {
     ///
     /// # Warning
     /// This API is very likely to change in the future.
-    pub fn terms(&self, field: Field) -> TermMerger<TermInfo> {
+    pub fn terms(&self, field: Field) -> TermMerger {
         TermMerger::for_field(self.segment_readers(), field)
     }
 }

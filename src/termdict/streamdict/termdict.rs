@@ -6,13 +6,13 @@ use fst::raw::Fst;
 use common::VInt;
 use directory::ReadOnlySource;
 use common::BinarySerializable;
-use std::marker::PhantomData;
 use common::CountingWriter;
 use std::cmp::Ordering;
 use postings::TermInfo;
+use schema::{Field, Term};
 use fst::raw::Node;
 use super::streamer::stream_before;
-use termdict::{TermDictionary, TermDictionaryBuilder, TermStreamer};
+use termdict::{TermDictionary, TermStreamerBuilder, TermDictionaryBuilder, TermStreamer};
 use super::{TermStreamerImpl, TermStreamerBuilderImpl};
 
 const BLOCK_SIZE: usize = 1024;
@@ -22,15 +22,13 @@ fn convert_fst_error(e: fst::Error) -> io::Error {
 }
 
 /// See [`TermDictionaryBuilder`](./trait.TermDictionaryBuilder.html)
-pub struct TermDictionaryBuilderImpl<W, V = TermInfo>
-    where W: Write,
-          V: BinarySerializable + Default
+pub struct TermDictionaryBuilderImpl<W>
+    where W: Write
 {
     write: CountingWriter<W>,
     block_index: fst::MapBuilder<Vec<u8>>,
     last_key: Vec<u8>,
     len: usize,
-    _phantom_: PhantomData<V>,
 }
 
 fn common_prefix_length(left: &[u8], right: &[u8]) -> usize {
@@ -48,9 +46,8 @@ fn fill_last<'a>(fst: &'a Fst, mut node: Node<'a>, buffer: &mut Vec<u8>) {
     }
 }
 
-impl<W, V> TermDictionaryBuilderImpl<W, V>
-    where W: Write,
-          V: BinarySerializable + Default
+impl<W> TermDictionaryBuilderImpl<W>
+    where W: Write
 {
     fn add_index_entry(&mut self) {
         self.block_index
@@ -80,15 +77,15 @@ impl<W, V> TermDictionaryBuilderImpl<W, V>
         Ok(())
     }
 
-    pub(crate) fn insert_value(&mut self, value: &V) -> io::Result<()> {
+    pub(crate) fn insert_value(&mut self, value: &TermInfo) -> io::Result<()> {
         value.serialize(&mut self.write)?;
         Ok(())
     }
 }
 
-impl<W, V> TermDictionaryBuilder<W, V> for TermDictionaryBuilderImpl<W, V>
-    where W: Write,
-          V: BinarySerializable + Default
+
+impl<W> TermDictionaryBuilder<W> for TermDictionaryBuilderImpl<W>
+    where W: Write
 {
     /// Creates a new `TermDictionaryBuilder`
     fn new(write: W) -> io::Result<Self> {
@@ -98,14 +95,13 @@ impl<W, V> TermDictionaryBuilder<W, V> for TermDictionaryBuilderImpl<W, V>
                block_index: fst::MapBuilder::new(buffer).expect("This cannot fail"),
                last_key: Vec::with_capacity(128),
                len: 0,
-               _phantom_: PhantomData,
            })
     }
 
     /// Inserts a `(key, value)` pair in the term dictionary.
     ///
     /// *Keys have to be inserted in order.*
-    fn insert<K: AsRef<[u8]>>(&mut self, key_ref: K, value: &V) -> io::Result<()> {
+    fn insert<K: AsRef<[u8]>>(&mut self, key_ref: K, value: &TermInfo) -> io::Result<()> {
         let key = key_ref.as_ref();
         self.insert_key(key)?;
         self.insert_value(value)
@@ -128,26 +124,23 @@ impl<W, V> TermDictionaryBuilder<W, V> for TermDictionaryBuilderImpl<W, V>
 fn open_fst_index(source: ReadOnlySource) -> io::Result<fst::Map> {
     Ok(fst::Map::from(match source {
                           ReadOnlySource::Anonymous(data) => {
-                              try!(Fst::from_shared_bytes(data.data, data.start, data.len)
-                                       .map_err(convert_fst_error))
+                              Fst::from_shared_bytes(data.data, data.start, data.len)
+                                       .map_err(convert_fst_error)?
                           }
                           ReadOnlySource::Mmap(mmap_readonly) => {
-                              try!(Fst::from_mmap(mmap_readonly).map_err(convert_fst_error))
+                              Fst::from_mmap(mmap_readonly).map_err(convert_fst_error)?
                           }
                       }))
 }
 
 /// See [`TermDictionary`](./trait.TermDictionary.html)
-pub struct TermDictionaryImpl<V = TermInfo>
-    where V: BinarySerializable + Default
+pub struct TermDictionaryImpl
 {
     stream_data: ReadOnlySource,
     fst_index: fst::Map,
-    _phantom_: PhantomData<V>,
 }
 
-impl<V> TermDictionaryImpl<V>
-    where V: BinarySerializable + Default
+impl TermDictionaryImpl
 {
     pub(crate) fn stream_data(&self) -> &[u8] {
         self.stream_data.as_slice()
@@ -200,12 +193,11 @@ impl<V> TermDictionaryImpl<V>
 }
 
 
-impl<'a, V> TermDictionary<'a, V> for TermDictionaryImpl<V>
-    where V: BinarySerializable + Default + 'a
+impl<'a> TermDictionary<'a> for TermDictionaryImpl
 {
-    type Streamer = TermStreamerImpl<'a, V>;
+    type Streamer = TermStreamerImpl<'a>;
 
-    type StreamBuilder = TermStreamerBuilderImpl<'a, V>;
+    type StreamBuilder = TermStreamerBuilderImpl<'a>;
 
     /// Opens a `TermDictionary` given a data source.
     fn from_source(source: ReadOnlySource) -> io::Result<Self> {
@@ -222,12 +214,11 @@ impl<'a, V> TermDictionary<'a, V> for TermDictionaryImpl<V>
         Ok(TermDictionaryImpl {
                stream_data: stream_data,
                fst_index: fst_index,
-               _phantom_: PhantomData,
            })
     }
 
     /// Lookups the value corresponding to the key.
-    fn get<K: AsRef<[u8]>>(&self, target_key: K) -> Option<V> {
+    fn get<K: AsRef<[u8]>>(&self, target_key: K) -> Option<TermInfo> {
         let mut streamer = stream_before(self, target_key.as_ref());
         while streamer.advance() {
             let position = streamer.key().cmp(target_key.as_ref());

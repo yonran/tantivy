@@ -1,21 +1,19 @@
 use fst::{IntoStreamer, Streamer};
 use fst::map::{StreamBuilder, Stream};
-use common::BinarySerializable;
+use postings::TermInfo;
 use super::TermDictionaryImpl;
 use termdict::{TermStreamerBuilder, TermStreamer};
 
 /// See [`TermStreamerBuilder`](./trait.TermStreamerBuilder.html)
-pub struct TermStreamerBuilderImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+pub struct TermStreamerBuilderImpl<'a>
 {
-    fst_map: &'a TermDictionaryImpl<V>,
+    fst_map: &'a TermDictionaryImpl,
     stream_builder: StreamBuilder<'a>,
 }
 
-impl<'a, V> TermStreamerBuilderImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+impl<'a> TermStreamerBuilderImpl<'a>
 {
-    pub(crate) fn new(fst_map: &'a TermDictionaryImpl<V>,
+    pub(crate) fn new(fst_map: &'a TermDictionaryImpl,
                       stream_builder: StreamBuilder<'a>)
                       -> Self {
         TermStreamerBuilderImpl {
@@ -25,10 +23,9 @@ impl<'a, V> TermStreamerBuilderImpl<'a, V>
     }
 }
 
-impl<'a, V> TermStreamerBuilder<V> for TermStreamerBuilderImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+impl<'a> TermStreamerBuilder for TermStreamerBuilderImpl<'a>
 {
-    type Streamer = TermStreamerImpl<'a, V>;
+    type Streamer = TermStreamerImpl<'a>;
 
     fn ge<T: AsRef<[u8]>>(mut self, bound: T) -> Self {
         self.stream_builder = self.stream_builder.ge(bound);
@@ -56,25 +53,23 @@ impl<'a, V> TermStreamerBuilder<V> for TermStreamerBuilderImpl<'a, V>
             stream: self.stream_builder.into_stream(),
             offset: 0u64,
             current_key: Vec::with_capacity(100),
-            current_value: V::default(),
+            current_value: TermInfo::default(),
         }
     }
 }
 
 
 /// See [`TermStreamer`](./trait.TermStreamer.html)
-pub struct TermStreamerImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+pub struct TermStreamerImpl<'a>
 {
-    fst_map: &'a TermDictionaryImpl<V>,
+    fst_map: &'a TermDictionaryImpl,
     stream: Stream<'a>,
     offset: u64,
     current_key: Vec<u8>,
-    current_value: V,
+    current_value: TermInfo,
 }
 
-impl<'a, V> TermStreamer<V> for TermStreamerImpl<'a, V>
-    where V: BinarySerializable + Default
+impl<'a> TermStreamer for TermStreamerImpl<'a>
 {
     fn advance(&mut self) -> bool {
         if let Some((term, offset)) = self.stream.next() {
@@ -95,7 +90,7 @@ impl<'a, V> TermStreamer<V> for TermStreamerImpl<'a, V>
         &self.current_key
     }
 
-    fn value(&self) -> &V {
+    fn value(&self) -> &TermInfo {
         &self.current_value
     }
 }

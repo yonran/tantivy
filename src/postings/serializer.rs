@@ -50,7 +50,7 @@ use termdict::TermDictionaryBuilder;
 /// A description of the serialization format is
 /// [available here](https://fulmicoton.gitbooks.io/tantivy-doc/content/inverted-index.html).
 pub struct PostingsSerializer {
-    terms_fst_builder: TermDictionaryBuilderImpl<WritePtr, TermInfo>,
+    terms_fst_builder: TermDictionaryBuilderImpl<WritePtr>,
     postings_write: CountingWriter<WritePtr>,
     positions_write: CountingWriter<WritePtr>,
     last_doc_id_encoded: u32,

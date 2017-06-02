@@ -4,36 +4,34 @@ use std::cmp::max;
 use common::BinarySerializable;
 use super::TermDictionaryImpl;
 use termdict::{TermStreamerBuilder, TermStreamer};
+use postings::TermInfo;
 
-pub(crate) fn stream_before<'a, V>(term_dictionary: &'a TermDictionaryImpl<V>,
-                                   target_key: &[u8])
-                                   -> TermStreamerImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+pub(crate) fn stream_before<'a>(term_dictionary: &'a TermDictionaryImpl,
+                                target_key: &[u8])
+    -> TermStreamerImpl<'a>
 {
     let (prev_key, offset) = term_dictionary.strictly_previous_key(target_key.as_ref());
     let offset: usize = offset as usize;
     TermStreamerImpl {
         cursor: &term_dictionary.stream_data()[offset..],
         current_key: Vec::from(prev_key),
-        current_value: V::default(),
+        current_value: TermInfo::default(),
     }
 }
 
 /// See [`TermStreamerBuilder`](./trait.TermStreamerBuilder.html)
-pub struct TermStreamerBuilderImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+pub struct TermStreamerBuilderImpl<'a>
 {
-    term_dictionary: &'a TermDictionaryImpl<V>,
+    term_dictionary: &'a TermDictionaryImpl,
     origin: usize,
     offset_from: usize,
     offset_to: usize,
     current_key: Vec<u8>,
 }
 
-impl<'a, V> TermStreamerBuilder<V> for TermStreamerBuilderImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+impl<'a> TermStreamerBuilder for TermStreamerBuilderImpl<'a>
 {
-    type Streamer = TermStreamerImpl<'a, V>;
+    type Streamer = TermStreamerImpl<'a>;
 
     /// Limit the range to terms greater or equal to the bound
     fn ge<T: AsRef<[u8]>>(mut self, bound: T) -> Self {
@@ -85,7 +83,7 @@ impl<'a, V> TermStreamerBuilder<V> for TermStreamerBuilderImpl<'a, V>
         TermStreamerImpl {
             cursor: &data[start..stop],
             current_key: self.current_key,
-            current_value: V::default(),
+            current_value: TermInfo::default(),
         }
     }
 }
@@ -94,10 +92,8 @@ impl<'a, V> TermStreamerBuilder<V> for TermStreamerBuilderImpl<'a, V>
 /// key in the stream matching a given predicate.
 ///
 /// returns (start offset, the data required to load the value)
-fn get_offset<'a, V, P: Fn(&[u8]) -> bool>(predicate: P,
-                                           mut streamer: TermStreamerImpl<V>)
+fn get_offset<'a, P: Fn(&[u8]) -> bool>(predicate: P, mut streamer: TermStreamerImpl)
                                            -> (usize, Vec<u8>)
-    where V: 'a + BinarySerializable + Default
 {
     let mut prev: &[u8] = streamer.cursor;
 
@@ -114,10 +110,9 @@ fn get_offset<'a, V, P: Fn(&[u8]) -> bool>(predicate: P,
     (prev.as_ptr() as usize, prev_data)
 }
 
-impl<'a, V> TermStreamerBuilderImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+impl<'a> TermStreamerBuilderImpl<'a>
 {
-    pub(crate) fn new(term_dictionary: &'a TermDictionaryImpl<V>) -> Self {
+    pub(crate) fn new(term_dictionary: &'a TermDictionaryImpl) -> Self {
         let data = term_dictionary.stream_data();
         let origin = data.as_ptr() as usize;
         TermStreamerBuilderImpl {
@@ -131,19 +126,17 @@ impl<'a, V> TermStreamerBuilderImpl<'a, V>
 }
 
 /// See [`TermStreamer`](./trait.TermStreamer.html)
-pub struct TermStreamerImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+pub struct TermStreamerImpl<'a>
 {
     cursor: &'a [u8],
     current_key: Vec<u8>,
-    current_value: V,
+    current_value: TermInfo,
 }
 
 
-impl<'a, V: BinarySerializable> TermStreamerImpl<'a, V>
-    where V: 'a + BinarySerializable + Default
+impl<'a> TermStreamerImpl<'a>
 {
-    pub(crate) fn extract_value(self) -> V {
+    pub(crate) fn extract_value(self) -> TermInfo {
         self.current_value
     }
 }
@@ -163,8 +156,7 @@ fn deserialize_vint(data: &mut &[u8]) -> u64 {
     res
 }
 
-impl<'a, V> TermStreamer<V> for TermStreamerImpl<'a, V>
-    where V: BinarySerializable + Default
+impl<'a> TermStreamer for TermStreamerImpl<'a>
 {
     fn advance(&mut self) -> bool {
         if self.cursor.is_empty() {
@@ -177,7 +169,7 @@ impl<'a, V> TermStreamer<V> for TermStreamerImpl<'a, V>
             .extend_from_slice(&self.cursor[..added_length]);
         self.cursor = &self.cursor[added_length..];
         self.current_value =
-            V::deserialize(&mut self.cursor)
+            TermInfo::deserialize(&mut self.cursor)
                 .expect("Term dictionary corrupted. Failed to deserialize a value");
         true
     }
@@ -186,7 +178,7 @@ impl<'a, V> TermStreamer<V> for TermStreamerImpl<'a, V>
         &self.current_key
     }
 
-    fn value(&self) -> &V {
+    fn value(&self) -> &TermInfo {
         &self.current_value
     }
 }
