@@ -21,7 +21,7 @@ mod union_all;
 mod docset;
 mod segment_postings_option;
 
-pub use self::docset::{SkipResult, DocSet};
+pub use self::docset::{SkipResult, DocSet, DocSetGroup};
 use self::recorder::{Recorder, NothingRecorder, TermFrequencyRecorder, TFAndPositionRecorder};
 pub use self::serializer::{InvertedIndexSerializer, FieldSerializer};
 pub(crate) use self::postings_writer::MultiFieldPostingsWriter;

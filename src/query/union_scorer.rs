@@ -1,27 +1,27 @@
 use Score;
 use DocId;
-use postings::{DocSet, DocSetGroup, SkipResult, UnionAllDocSet};
+use postings::{DocSet, DocSetGroup, SkipResult, UnionDocSet};
 use query::Scorer;
 use query::boolean_query::ScoreCombiner;
 
 /// Represents a `Scorer` for a union of `Scorer`s
-/// Keeps the duplicate elements
-pub struct UnionAllScorer<TScorer: Scorer> {
-    inner: UnionAllDocSet<TScorer>,
+/// Skips the duplicate elements
+pub struct UnionScorer<TScorer: Scorer> {
+    inner: UnionDocSet<TScorer>,
     score_combiner: ScoreCombiner,
 }
 
-impl<TScorer: Scorer> From<Vec<TScorer>> for UnionAllScorer<TScorer> {
-    fn from(scorers: Vec<TScorer>) -> UnionAllScorer<TScorer> {
+impl<TScorer: Scorer> From<Vec<TScorer>> for UnionScorer<TScorer> {
+    fn from(scorers: Vec<TScorer>) -> Self {
         let num_scorers = scorers.len();
-        UnionAllScorer {
-            inner: UnionAllDocSet::from(scorers),
+        UnionScorer {
+            inner: UnionDocSet::from(scorers),
             score_combiner: ScoreCombiner::default_for_num_scorers(num_scorers),
         }
     }
 }
 
-impl<TScorer: Scorer> DocSet for UnionAllScorer<TScorer> {
+impl<TScorer: Scorer> DocSet for UnionScorer<TScorer> {
     fn advance(&mut self) -> bool {
         if !self.inner.advance() {
             return false;
@@ -55,7 +55,7 @@ impl<TScorer: Scorer> DocSet for UnionAllScorer<TScorer> {
     }
 }
 
-impl<TScorer: Scorer> Scorer for UnionAllScorer<TScorer> {
+impl<TScorer: Scorer> Scorer for UnionScorer<TScorer> {
     fn score(&self) -> Score {
         self.score_combiner.score()
     }
