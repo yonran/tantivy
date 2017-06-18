@@ -16,6 +16,7 @@ mod term_info;
 mod vec_postings;
 mod segment_postings;
 mod intersection;
+mod union;
 mod union_all;
 mod docset;
 mod segment_postings_option;
@@ -33,6 +34,7 @@ pub use self::vec_postings::VecPostings;
 
 pub use self::segment_postings::{SegmentPostings, BlockSegmentPostings};
 pub use self::intersection::IntersectionDocSet;
+pub use self::union::UnionDocSet;
 pub use self::union_all::UnionAllDocSet;
 pub use self::segment_postings_option::SegmentPostingsOption;
 pub use common::HasLen;
