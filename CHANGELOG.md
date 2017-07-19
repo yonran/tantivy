@@ -1,3 +1,7 @@
+Tantivy 0.4.1
+==========================
+- Hotfix : Unindexed fields were indexed as untokenized.
+
 Tantivy 0.4.0
 ==========================
 
