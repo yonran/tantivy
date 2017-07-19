@@ -35,7 +35,7 @@ mod build {
                 .file("cpp/streamvbyte/src/streamvbyte.c")
                 .file("cpp/streamvbyte/src/streamvbytedelta.c")
                 .flag("-msse4.1")
-                .flag("-march=native")
+                //.flag("-march=native")
                 .flag("-std=c99");
         }
 
