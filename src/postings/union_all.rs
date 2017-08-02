@@ -45,9 +45,9 @@ impl<TDocSet: DocSet> From<Vec<TDocSet>> for UnionAllDocSet<TDocSet> {
         for (ord, docset) in docsets.iter_mut().enumerate() {
             if docset.advance() {
                 heap_items.push(HeapItem {
-                                    doc: docset.doc(),
-                                    ord: ord as u32,
-                                });
+                    doc: docset.doc(),
+                    ord: ord as u32,
+                });
             }
         }
         UnionAllDocSet {
@@ -94,7 +94,6 @@ impl<TDocSet: DocSet> DocSet for UnionAllDocSet<TDocSet> {
         self.docsets.iter().map(|docset| docset.size_hint()).sum()
     }
 
-    #[allow(never_loop)]
     fn advance(&mut self) -> bool {
         if self.finished {
             return false;
