@@ -23,6 +23,16 @@ impl<TLeftDocSet: DocSet, TRightDocSet: DocSet> DifferenceDocSet<TLeftDocSet, TR
             right_finished: right_finished,
         }
     }
+
+    /// Returns the left `DocSet`
+    pub fn left(&self) -> &TLeftDocSet {
+        &self.left
+    }
+
+    /// Returns the right `DocSet`
+    pub fn right(&self) -> &TRightDocSet {
+        &self.right
+    }
 }
 
 impl<TLeftDocSet: DocSet, TRightDocSet: DocSet> DocSet
