@@ -28,7 +28,6 @@ impl<TDocSet: DocSet> DocSet for UnionDocSet<TDocSet> {
         self.inner.size_hint()
     }
 
-    #[allow(never_loop)]
     fn advance(&mut self) -> bool {
         if !self.inner.advance() {
             return false;
