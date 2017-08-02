@@ -39,7 +39,7 @@ pub struct UnionAllDocSet<TDocSet: DocSet> {
 }
 
 impl<TDocSet: DocSet> From<Vec<TDocSet>> for UnionAllDocSet<TDocSet> {
-    fn from(mut docsets: Vec<TDocSet>) -> UnionAllDocSet<TDocSet> {
+    fn from(mut docsets: Vec<TDocSet>) -> Self {
         assert!(docsets.len() >= 2);
         let mut heap_items = Vec::with_capacity(docsets.len());
         for (ord, docset) in docsets.iter_mut().enumerate() {

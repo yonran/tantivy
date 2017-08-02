@@ -12,7 +12,7 @@ pub struct UnionAllScorer<TScorer: Scorer> {
 }
 
 impl<TScorer: Scorer> From<Vec<TScorer>> for UnionAllScorer<TScorer> {
-    fn from(scorers: Vec<TScorer>) -> UnionAllScorer<TScorer> {
+    fn from(scorers: Vec<TScorer>) -> Self {
         let num_scorers = scorers.len();
         UnionAllScorer {
             inner: UnionAllDocSet::from(scorers),

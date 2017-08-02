@@ -9,7 +9,7 @@ pub struct UnionDocSet<TDocSet: DocSet> {
 }
 
 impl<TDocSet: DocSet> From<Vec<TDocSet>> for UnionDocSet<TDocSet> {
-    fn from(docsets: Vec<TDocSet>) -> UnionDocSet<TDocSet> {
+    fn from(docsets: Vec<TDocSet>) -> Self {
         UnionDocSet {
             inner: UnionAllDocSet::from(docsets),
             current: None,

@@ -11,10 +11,7 @@ pub struct DifferenceDocSet<TLeftDocSet: DocSet, TRightDocSet: DocSet> {
 
 impl<TLeftDocSet: DocSet, TRightDocSet: DocSet> DifferenceDocSet<TLeftDocSet, TRightDocSet> {
     /// Returns a `DifferenceDocSet` of two other `DocSet`s
-    pub fn new(
-        left: TLeftDocSet,
-        mut right: TRightDocSet,
-    ) -> DifferenceDocSet<TLeftDocSet, TRightDocSet> {
+    pub fn new(left: TLeftDocSet, mut right: TRightDocSet) -> Self {
         let right_finished = !right.advance();
 
         DifferenceDocSet {

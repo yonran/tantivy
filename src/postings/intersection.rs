@@ -10,7 +10,7 @@ pub struct IntersectionDocSet<TDocSet: DocSet> {
 }
 
 impl<TDocSet: DocSet> From<Vec<TDocSet>> for IntersectionDocSet<TDocSet> {
-    fn from(mut docsets: Vec<TDocSet>) -> IntersectionDocSet<TDocSet> {
+    fn from(mut docsets: Vec<TDocSet>) -> Self {
         assert!(docsets.len() >= 2);
         docsets.sort_by_key(|docset| docset.size_hint());
         IntersectionDocSet {

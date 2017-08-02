@@ -11,7 +11,7 @@ pub struct IntersectionScorer<TScorer: Scorer> {
 }
 
 impl<TScorer: Scorer> From<Vec<TScorer>> for IntersectionScorer<TScorer> {
-    fn from(scorers: Vec<TScorer>) -> IntersectionScorer<TScorer> {
+    fn from(scorers: Vec<TScorer>) -> Self {
         let num_scorers = scorers.len();
         IntersectionScorer {
             inner: IntersectionDocSet::from(scorers),
