@@ -18,6 +18,7 @@ mod segment_postings;
 mod intersection;
 mod union;
 mod union_all;
+mod difference;
 mod docset;
 mod segment_postings_option;
 
@@ -36,6 +37,7 @@ pub use self::segment_postings::{SegmentPostings, BlockSegmentPostings};
 pub use self::intersection::IntersectionDocSet;
 pub use self::union::UnionDocSet;
 pub use self::union_all::UnionAllDocSet;
+pub use self::difference::DifferenceDocSet;
 pub use self::segment_postings_option::SegmentPostingsOption;
 pub use common::HasLen;
 
@@ -520,10 +522,12 @@ mod tests {
                 .inverted_index(TERM_D.field())
                 .read_postings(&*TERM_D, SegmentPostingsOption::NoFreq)
                 .unwrap();
-            let mut intersection = IntersectionDocSet::from(vec![segment_postings_a,
-                                                                 segment_postings_b,
-                                                                 segment_postings_c,
-                                                                 segment_postings_d]);
+            let mut intersection = IntersectionDocSet::from(vec![
+                segment_postings_a,
+                segment_postings_b,
+                segment_postings_c,
+                segment_postings_d,
+            ]);
 
             let mut target = 0;
             while intersection.skip_next(target) != SkipResult::End {
@@ -553,13 +557,56 @@ mod tests {
                 .inverted_index(TERM_D.field())
                 .read_postings(&*TERM_D, SegmentPostingsOption::NoFreq)
                 .unwrap();
-            let mut union = UnionAllDocSet::from(vec![segment_postings_a,
-                                                      segment_postings_b,
-                                                      segment_postings_c,
-                                                      segment_postings_d]);
+            let mut union = UnionAllDocSet::from(vec![
+                segment_postings_a,
+                segment_postings_b,
+                segment_postings_c,
+                segment_postings_d,
+            ]);
 
             let mut target = 0;
             while union.skip_next(target) != SkipResult::End {
+                target += 10000;
+            }
+        });
+    }
+
+    #[bench]
+    fn bench_segment_difference(b: &mut Bencher) {
+        let searcher = INDEX.searcher();
+        let segment_reader = searcher.segment_reader(0);
+        b.iter(|| {
+            let segment_postings_a = segment_reader
+                .inverted_index(TERM_A.field())
+                .read_postings(&*TERM_A, SegmentPostingsOption::NoFreq)
+                .unwrap();
+            let segment_postings_b = segment_reader
+                .inverted_index(TERM_B.field())
+                .read_postings(&*TERM_B, SegmentPostingsOption::NoFreq)
+                .unwrap();
+            let mut difference = DifferenceDocSet::new(segment_postings_a, segment_postings_b);
+
+            while difference.advance() {}
+        });
+    }
+
+    #[bench]
+    fn bench_segment_difference_skip_next(b: &mut Bencher) {
+        let searcher = INDEX.searcher();
+        let segment_reader = searcher.segment_reader(0);
+        b.iter(|| {
+            let segment_postings_a = segment_reader
+                .inverted_index(TERM_A.field())
+                .read_postings(&*TERM_A, SegmentPostingsOption::NoFreq)
+                .unwrap();
+            let segment_postings_b = segment_reader
+                .inverted_index(TERM_B.field())
+                .read_postings(&*TERM_B, SegmentPostingsOption::NoFreq)
+                .unwrap();
+            let mut difference = DifferenceDocSet::new(segment_postings_a, segment_postings_b);
+
+            let mut target = 0;
+            while difference.skip_next(target) != SkipResult::End {
                 target += 10000;
             }
         });
