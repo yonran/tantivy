@@ -1,7 +1,7 @@
 use postings::{DocSet, DocSetGroup, SkipResult, UnionAllDocSet};
 use DocId;
 
-/// Creates a `DocSet` that iterates through the (distinct) union of two or more `DocSet`s.
+/// Represents a `DocSet` that iterates through the (distinct) union of two or more `DocSet`s.
 /// The duplicate elements are removed.
 pub struct UnionDocSet<TDocSet: DocSet> {
     inner: UnionAllDocSet<TDocSet>,

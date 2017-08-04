@@ -9,7 +9,8 @@ pub struct DifferenceScorer<TLeftScorer: Scorer, TRightScorer: Scorer> {
 }
 
 impl<TLeftScorer: Scorer, TRightScorer: Scorer> DifferenceScorer<TLeftScorer, TRightScorer> {
-    /// Creates a `DifferenceScorer` of two other `Scorer`s
+    /// Creates a `DifferenceScorer` of two other `Scorer`s. It will return documents on the
+    /// `left` side that are not present on the `right`.
     pub fn new(left: TLeftScorer, right: TRightScorer) -> Self {
         DifferenceScorer {
             inner: DifferenceDocSet::new(left, right),

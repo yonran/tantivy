@@ -29,8 +29,8 @@ impl Ord for HeapItem {
     }
 }
 
-/// Creates a `DocSet` that iterates through the union of two or more `DocSet`s.
-/// Note that the duplicate elements are kept.
+/// Represents a `DocSet` that iterates through the union of two or more `DocSet`s.
+/// The duplicate elements are kept.
 pub struct UnionAllDocSet<TDocSet: DocSet> {
     docsets: Vec<TDocSet>,
     queue: BinaryHeap<HeapItem>,
@@ -78,7 +78,7 @@ impl<TDocSet: DocSet> UnionAllDocSet<TDocSet> {
             }
         }
 
-        // TODO: replace with PeekMut::pop one day
+        // TODO: perhaps replace with PeekMut::pop one day
         self.queue.pop();
     }
 }

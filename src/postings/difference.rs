@@ -2,7 +2,7 @@ use postings::DocSet;
 use postings::SkipResult;
 use DocId;
 
-/// Creates a `DocSet` that iterates through the difference of two or more `DocSet`s.
+/// Represents a `DocSet` that iterates through the difference of two or more `DocSet`s.
 pub struct DifferenceDocSet<TLeftDocSet: DocSet, TRightDocSet: DocSet> {
     left: TLeftDocSet,
     right: TRightDocSet,
@@ -10,7 +10,8 @@ pub struct DifferenceDocSet<TLeftDocSet: DocSet, TRightDocSet: DocSet> {
 }
 
 impl<TLeftDocSet: DocSet, TRightDocSet: DocSet> DifferenceDocSet<TLeftDocSet, TRightDocSet> {
-    /// Returns a `DifferenceDocSet` of two other `DocSet`s
+    /// Returns a `DifferenceDocSet` of two other `DocSet`s. It will return documents on the
+    ///  `left` side that are not present on the `right`.
     pub fn new(left: TLeftDocSet, mut right: TRightDocSet) -> Self {
         let right_finished = !right.advance();
 
