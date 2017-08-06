@@ -111,6 +111,16 @@ impl<'a> SegmentPostings<'a> {
             position_computer: None,
         }
     }
+
+
+    fn position_add_skip<F: FnOnce()->usize>(&self, num_skips_fn: F) {
+        if let Some(ref position_computer) = self.position_computer.as_ref() {
+            let num_skips = num_skips_fn();
+            unsafe {
+                (*position_computer.get()).add_skip(num_skips);
+            }
+        }
+    }
 }
 
 
@@ -130,12 +140,8 @@ impl<'a> DocSet for SegmentPostings<'a> {
                     return false;
                 }
             }
+            self.position_add_skip(|| 1);
             if !self.delete_bitset.is_deleted(self.doc()) {
-                if let Some(ref mut position_computer) = self.position_computer.as_mut() {
-                    unsafe {
-                        (*position_computer.get()).add_skip(pos_to_skip as usize);
-                    }
-                }
                 return true;
             }
         }
@@ -147,6 +153,10 @@ impl<'a> DocSet for SegmentPostings<'a> {
             return SkipResult::End;
         }
 
+        // in the following, thanks to the call to advance above,
+        // we know that the position is not loaded and we need
+        // to skip every doc_freq we cross.
+
         // skip blocks until one that might contain the target
         loop {
             // check if we need to go to the next block
@@ -155,13 +165,25 @@ impl<'a> DocSet for SegmentPostings<'a> {
                 (block_docs[self.cur], block_docs[block_docs.len() - 1])
             };
             if target > last_doc_in_block {
+
+                // we add skip for the current term independantly,
+                // so that position_add_skip will decide if it should
+                // just set itself to Some(0) or effectively
+                // add the term freq.
+                //let num_skips: u32 = ;
+                self.position_add_skip(|| {
+                    let s: u32 = self.block_cursor.freqs()[self.cur..].iter().sum();
+                    s as usize
+                });
+
                 if !self.block_cursor.advance() {
                     return SkipResult::End;
                 }
+
                 self.cur = 0;
             } else {
                 if target < current_doc {
-                    // We've overpassed the target after the first `advance` call
+                    // We've passed the target after the first `advance` call
                     // or we're at the beginning of a block.
                     // Either way, we're on the first `DocId` greater than `target`
                     return SkipResult::OverStep;
@@ -207,6 +229,12 @@ impl<'a> DocSet for SegmentPostings<'a> {
 
             // `doc` is now >= `target`
             let doc = block_docs[start];
+
+            self.position_add_skip(|| {
+                let s: u32 = self.block_cursor.freqs()[self.cur..start].iter().sum();
+                s as usize
+            });
+
             self.cur = start;
 
             if !self.delete_bitset.is_deleted(doc) {

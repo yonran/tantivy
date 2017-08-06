@@ -41,7 +41,6 @@ size_t uncompress_unsorted(
     return 1 + b * sizeof(__m128i);
 }
 
-
 size_t compressedbytes(const uint32_t length, const uint8_t num_bits) {
     return simdpack_compressedbytes((int)length, (uint32_t)num_bits);
 }
