@@ -107,7 +107,10 @@ impl Document {
 
 impl From<Vec<FieldValue>> for Document {
     fn from(field_values: Vec<FieldValue>) -> Document {
-        Document { field_values: field_values }
+        Document {
+            field_values: field_values,
+            //  facets: vec!(),
+        }
     }
 }
 

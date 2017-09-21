@@ -24,6 +24,9 @@ pub struct TermInfo {
     pub positions_inner_offset: u8,
 }
 
+impl TermInfo {
+    pub const SIZE_IN_BYTES: usize = 4 + 4 + 4 + 1; // < make that much smaller.
+}
 
 impl BinarySerializable for TermInfo {
     fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {

@@ -52,6 +52,10 @@ use schema::{Field, Term, FieldType};
 use directory::ReadOnlySource;
 use postings::TermInfo;
 
+
+pub type TermOrdinal = u64;
+
+
 pub use self::merger::TermMerger;
 
 #[cfg(not(feature = "streamdict"))]
@@ -84,6 +88,10 @@ where
 
     /// Opens a `TermDictionary` given a data source.
     fn from_source(source: ReadOnlySource) -> Self;
+
+    fn term_ord<K: AsRef<[u8]>>(&self, key: K) -> Option<TermOrdinal>;
+
+    fn term_info_from_ord(&self, term_ord: TermOrdinal) -> TermInfo;
 
     /// Lookups the value corresponding to the key.
     fn get<K: AsRef<[u8]>>(&self, target_key: K) -> Option<TermInfo>;
@@ -148,6 +156,9 @@ pub trait TermStreamer: Sized {
     ///
     /// Before any call to `.next()`, `.key()` returns an empty array.
     fn key(&self) -> &[u8];
+
+
+    fn term_ord(&self) -> TermOrdinal;
 
     /// Accesses the current value.
     ///

@@ -104,6 +104,7 @@ the field is required during scoring or collection for instance.
 mod schema;
 mod term;
 mod document;
+mod facet;
 
 mod field_type;
 mod field_entry;
@@ -121,6 +122,7 @@ pub use self::named_field_document::NamedFieldDocument;
 pub use self::schema::{Schema, SchemaBuilder};
 pub use self::value::Value;
 pub use self::schema::DocParsingError;
+pub use self::facet::Facet;
 
 pub use self::document::Document;
 pub use self::field::Field;
