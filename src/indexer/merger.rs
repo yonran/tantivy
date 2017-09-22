@@ -3,7 +3,6 @@ use core::SegmentReader;
 use core::Segment;
 use DocId;
 use core::SerializableSegment;
-use schema::FieldValue;
 use indexer::SegmentSerializer;
 use postings::InvertedIndexSerializer;
 use fastfield::U64FastFieldReader;
@@ -358,9 +357,9 @@ impl IndexMerger {
             let store_reader = reader.get_store_reader();
             for doc_id in 0..reader.max_doc() {
                 if !reader.is_deleted(doc_id) {
+                    // TODO copy the document payloads directly.
                     let doc = store_reader.get(doc_id)?;
-                    let field_values: Vec<&FieldValue> = doc.field_values().iter().collect();
-                    store_writer.store(&field_values)?;
+                    store_writer.store(&doc)?;
                 }
             }
         }

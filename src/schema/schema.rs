@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::collections::BTreeMap;
 use schema::field_type::ValueParsingError;
 use std::sync::Arc;
+use schema::named_field_document::ImplicitelyTypedValue;
 
 use serde_json::{self, Value as JsonValue, Map as JsonObject};
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
@@ -183,17 +184,18 @@ impl Schema {
 
     /// Create a named document off the doc.
     pub fn to_named_doc(&self, doc: &Document) -> NamedFieldDocument {
-        let mut field_map = BTreeMap::new();
+        let mut field_map = NamedFieldDocument::new();
         for (field, field_values) in doc.get_sorted_field_values() {
             let field_name = self.get_field_name(field);
             let values: Vec<Value> = field_values
                 .into_iter()
-                .map(|field_val| field_val.value())
-                .cloned()
+                .map(|field_val| {
+                    field_val.value().clone()
+                })
                 .collect();
             field_map.insert(field_name.to_string(), values);
         }
-        NamedFieldDocument(field_map)
+        field_map
     }
 
 
@@ -423,7 +425,6 @@ mod tests {
                 "count": 4
         }"#;
         let doc = schema.parse_document(doc_json).unwrap();
-
         let doc_serdeser = schema.parse_document(&schema.to_json(&doc)).unwrap();
         assert_eq!(doc, doc_serdeser);
     }

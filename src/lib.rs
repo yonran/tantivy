@@ -42,6 +42,7 @@ extern crate error_chain;
 #[macro_use]
 extern crate version;
 extern crate fst;
+extern crate bincode;
 extern crate byteorder;
 extern crate memmap;
 extern crate regex;

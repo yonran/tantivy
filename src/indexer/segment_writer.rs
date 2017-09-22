@@ -7,7 +7,6 @@ use core::Segment;
 use core::SerializableSegment;
 use fastfield::FastFieldsWriter;
 use schema::Field;
-use schema::FieldValue;
 use schema::FieldType;
 use indexer::segment_serializer::SegmentSerializer;
 use datastruct::stacker::Heap;
@@ -132,11 +131,11 @@ impl<'a> SegmentWriter<'a> {
     /// As a user, you should rather use `IndexWriter`'s add_document.
     pub fn add_document(
         &mut self,
-        add_operation: &AddOperation,
+        add_operation: AddOperation,
         schema: &Schema,
     ) -> io::Result<()> {
         let doc_id = self.max_doc;
-        let doc = &add_operation.document;
+        let mut doc = add_operation.document;
         self.doc_opstamps.push(add_operation.opstamp);
         for (field, field_values) in doc.get_sorted_field_values() {
             let field_options = schema.get_field_entry(field);
@@ -190,15 +189,12 @@ impl<'a> SegmentWriter<'a> {
             }
         }
         self.fieldnorms_writer.fill_val_up_to(doc_id);
-        self.fast_field_writers.add_document(doc);
-        let stored_fieldvalues: Vec<&FieldValue> = doc.field_values()
-            .iter()
-            .filter(|field_value| {
-                schema.get_field_entry(field_value.field()).is_stored()
-            })
-            .collect();
+        self.fast_field_writers.add_document(&doc);
+        doc.filter_fields(|field| {
+            schema.get_field_entry(field).is_stored()
+        });
         let doc_writer = self.segment_serializer.get_store_writer();
-        try!(doc_writer.store(&stored_fieldvalues));
+        doc_writer.store(&doc)?;
         self.max_doc += 1;
         Ok(())
     }

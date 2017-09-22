@@ -4,6 +4,7 @@ use std::str;
 use regex::Regex;
 use std::borrow::Cow;
 
+#[derive(Serialize, Deserialize)]
 pub struct Facet(String);
 
 impl Facet {

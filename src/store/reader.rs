@@ -4,8 +4,8 @@ use directory::ReadOnlySource;
 use std::cell::RefCell;
 use DocId;
 use schema::Document;
-use schema::FieldValue;
 use common::BinarySerializable;
+use bincode;
 use std::mem::size_of;
 use std::io::{self, Read};
 use datastruct::SkipList;
@@ -23,6 +23,7 @@ pub struct StoreReader {
 }
 
 impl StoreReader {
+
     /// Opens a store reader
     pub fn from_source(data: ReadOnlySource) -> StoreReader {
         let (data_source, offset_index_source, max_doc) = split_source(data);
@@ -50,9 +51,9 @@ impl StoreReader {
             let block_length = u32::deserialize(&mut cursor).unwrap();
             let block_array: &[u8] = &total_buffer[(block_offset + 4 as usize)..
                                                        (block_offset + 4 + block_length as usize)];
-            let mut lz4_decoder = try!(lz4::Decoder::new(block_array));
+            let mut lz4_decoder = lz4::Decoder::new(block_array)?;
             *self.current_block_offset.borrow_mut() = usize::max_value();
-            try!(lz4_decoder.read_to_end(&mut current_block_mut).map(|_| ()));
+            lz4_decoder.read_to_end(&mut current_block_mut).map(|_| ())?;
             *self.current_block_offset.borrow_mut() = block_offset;
         }
         Ok(())
@@ -71,17 +72,13 @@ impl StoreReader {
         let current_block_mut = self.current_block.borrow_mut();
         let mut cursor = &current_block_mut[..];
         for _ in first_doc_id..doc_id {
-            let block_length = try!(u32::deserialize(&mut cursor));
-            cursor = &cursor[block_length as usize..];
+            let doc_length = u32::deserialize(&mut cursor)?;
+            cursor = &cursor[doc_length as usize..];
         }
-        u32::deserialize(&mut cursor)?;
-        let num_fields = u32::deserialize(&mut cursor)?;
-        let mut field_values = Vec::new();
-        for _ in 0..num_fields {
-            let field_value = FieldValue::deserialize(&mut cursor)?;
-            field_values.push(field_value);
-        }
-        Ok(Document::from(field_values))
+        let doc_length = u32::deserialize(&mut cursor)? as usize;
+        let document: Document = bincode::deserialize(&cursor[..doc_length])
+            .expect("The docstore is corrupted. Failed to fetch doc");
+        Ok(document)
     }
 }
 

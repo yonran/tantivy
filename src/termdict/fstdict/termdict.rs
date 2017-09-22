@@ -62,8 +62,8 @@ where
 
     fn insert<K: AsRef<[u8]>>(&mut self, key_ref: K, value: &TermInfo) -> io::Result<()> {
         let key = key_ref.as_ref();
-        self.insert_key(key.as_ref());
-        self.insert_value(value);
+        self.insert_key(key.as_ref())?;
+        self.insert_value(value)?;
         Ok(())
     }
 

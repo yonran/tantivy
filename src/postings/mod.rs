@@ -99,7 +99,7 @@ mod tests {
                     opstamp: 0u64,
                     document: doc,
                 };
-                segment_writer.add_document(&op, &schema).unwrap();
+                segment_writer.add_document(op, &schema).unwrap();
             }
             {
                 let mut doc = Document::default();
@@ -108,7 +108,7 @@ mod tests {
                     opstamp: 1u64,
                     document: doc,
                 };
-                segment_writer.add_document(&op, &schema).unwrap();
+                segment_writer.add_document(op, &schema).unwrap();
             }
             for i in 2..1000 {
                 let mut doc = Document::default();
@@ -119,7 +119,7 @@ mod tests {
                     opstamp: 2u64,
                     document: doc,
                 };
-                segment_writer.add_document(&op, &schema).unwrap();
+                segment_writer.add_document(op, &schema).unwrap();
             }
             segment_writer.finalize().unwrap();
         }

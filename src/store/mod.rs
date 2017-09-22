@@ -46,9 +46,8 @@ mod tests {
     use super::*;
     use test::Bencher;
     use std::path::Path;
-    use schema::{Schema, SchemaBuilder};
+    use schema::{Document, Schema, SchemaBuilder};
     use schema::TextOptions;
-    use schema::FieldValue;
     use directory::{RAMDirectory, Directory, MmapDirectory, WritePtr};
 
     fn write_lorem_ipsum_store(writer: WritePtr, num_docs: usize) -> Schema {
@@ -57,7 +56,7 @@ mod tests {
         let field_title =
             schema_builder.add_text_field("title", TextOptions::default().set_stored());
         let schema = schema_builder.build();
-        let lorem = String::from(
+        let lorem =
             "Doc Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed \
                                   do eiusmod tempor incididunt ut labore et dolore magna aliqua. \
                                   Ut enim ad minim veniam, quis nostrud exercitation ullamco \
@@ -65,23 +64,15 @@ mod tests {
                                   dolor in reprehenderit in voluptate velit esse cillum dolore eu \
                                   fugiat nulla pariatur. Excepteur sint occaecat cupidatat non \
                                   proident, sunt in culpa qui officia deserunt mollit anim id est \
-                                  laborum.",
-        );
+                                  laborum.";
         {
             let mut store_writer = StoreWriter::new(writer);
             for i in 0..num_docs {
-                let mut fields: Vec<FieldValue> = Vec::new();
-                {
-                    let field_value = FieldValue::new(field_body, From::from(lorem.clone()));
-                    fields.push(field_value);
-                }
-                {
-                    let title_text = format!("Doc {}", i);
-                    let field_value = FieldValue::new(field_title, From::from(title_text));
-                    fields.push(field_value);
-                }
-                let fields_refs: Vec<&FieldValue> = fields.iter().collect();
-                store_writer.store(&fields_refs).unwrap();
+                let mut document = Document::new();
+                document.add_text(field_body, lorem);
+                let title = format!("Doc {}", i);
+                document.add_text(field_title, &title);
+                store_writer.store(&document).unwrap();
             }
             store_writer.close().unwrap();
         }

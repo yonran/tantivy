@@ -1,10 +1,5 @@
-use std::io;
-use common::BinarySerializable;
-use std::io::Read;
-use std::io::Write;
 use schema::Field;
 use schema::Value;
-
 
 /// `FieldValue` holds together a `Field` and its `Value`.
 #[derive(Debug, Clone, Ord, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
@@ -30,18 +25,5 @@ impl FieldValue {
     /// Value accessor
     pub fn value(&self) -> &Value {
         &self.value
-    }
-}
-
-impl BinarySerializable for FieldValue {
-    fn serialize<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        self.field.serialize(writer)?;
-        self.value.serialize(writer)
-    }
-
-    fn deserialize<R: Read>(reader: &mut R) -> io::Result<Self> {
-        let field = Field::deserialize(reader)?;
-        let value = Value::deserialize(reader)?;
-        Ok(FieldValue::new(field, value))
     }
 }
