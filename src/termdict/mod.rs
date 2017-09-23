@@ -91,6 +91,8 @@ where
 
     fn term_ord<K: AsRef<[u8]>>(&self, key: K) -> Option<TermOrdinal>;
 
+    fn ord_to_term(&self, ord: TermOrdinal, bytes: &mut Vec<u8>) -> bool;
+
     fn term_info_from_ord(&self, term_ord: TermOrdinal) -> TermInfo;
 
     /// Lookups the value corresponding to the key.
@@ -229,6 +231,42 @@ mod tests {
             positions_offset: val * 2u32,
             postings_offset: val * 3u32,
             positions_inner_offset: 5u8,
+        }
+    }
+
+
+    #[test]
+    fn test_term_ordinals() {
+        const COUNTRIES: [&'static str; 7] = [
+            "San Marino",
+            "Serbia",
+            "Slovakia",
+            "Slovenia",
+            "Spain",
+            "Sweden",
+            "Switzerland"
+        ];
+        let mut directory = RAMDirectory::create();
+        let path = PathBuf::from("TermDictionary");
+        {
+            let write = directory.open_write(&path).unwrap();
+            let field_type = FieldType::Str(TEXT);
+            let mut term_dictionary_builder = TermDictionaryBuilderImpl::new(write, field_type)
+                .unwrap();
+            for term in COUNTRIES.iter() {
+                term_dictionary_builder
+                    .insert(term.as_bytes(), &make_term_info(0u32))
+                    .unwrap();
+            }
+            term_dictionary_builder.finish().unwrap();
+        }
+        let source = directory.open_read(&path).unwrap();
+        let term_dict: TermDictionaryImpl = TermDictionaryImpl::from_source(source);
+        for (term_ord, term) in COUNTRIES.iter().enumerate() {
+            assert_eq!(term_dict.term_ord(term).unwrap(), term_ord as u64);
+            let mut bytes = vec!();
+            assert!(term_dict.ord_to_term(term_ord as u64, &mut bytes));
+            assert_eq!(bytes, term.as_bytes());
         }
     }
 

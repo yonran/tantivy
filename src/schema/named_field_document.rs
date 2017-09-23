@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use schema::Value;
 use std::fmt;
+use schema::Facet;
 use serde::{Serialize, Deserialize, Deserializer, Serializer};
 use serde::de::Visitor;
 
@@ -10,21 +11,24 @@ use serde::de::Visitor;
 /// A `NamedFieldDocument` is a simple representation of a document
 /// as a `BTreeMap<String, Vec<Value>>`.
 ///
-#[derive(Serialize)]
-pub struct NamedFieldDocument(BTreeMap<String, Vec<ImplicitelyTypedValue>>);
+#[derive(Serialize, Default)]
+pub struct NamedFieldDocument {
+    fields: BTreeMap<String, Vec<ImplicitelyTypedValue>>,
+    facets: Vec<Facet>,
+}
 
 impl NamedFieldDocument {
 
     pub fn new() -> NamedFieldDocument {
-        NamedFieldDocument(BTreeMap::new())
+        NamedFieldDocument::default()
     }
 
-    pub fn insert(&mut self, field_name: String, values: Vec<Value>) {
+    pub fn insert_field(&mut self, field_name: String, values: Vec<Value>) {
         let typed_value = values
             .into_iter()
             .map(ImplicitelyTypedValue)
             .collect();
-        self.0.insert(field_name, typed_value);
+        self.fields.insert(field_name, typed_value);
     }
 }
 

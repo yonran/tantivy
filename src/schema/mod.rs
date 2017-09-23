@@ -177,3 +177,6 @@ mod tests {
     }
 
 }
+
+
+// TODO add unit test to check that serialization should fail for {"facetttts": , "fields": []}.

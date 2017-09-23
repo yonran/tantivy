@@ -118,6 +118,28 @@ impl<'a> TermDictionary<'a> for TermDictionaryImpl {
         }
     }
 
+    fn ord_to_term(&self, mut ord: TermOrdinal, bytes: &mut Vec<u8>) -> bool {
+        bytes.clear();
+        let fst = self.fst_index.as_fst();
+        let mut node = fst.root();
+        while ord != 0 || !node.is_final() {
+            if let Some(transition) = node.transitions()
+                .take_while(|transition| {
+                    transition.out.value() <= ord
+                })
+                .last() {
+                ord -= transition.out.value();
+                bytes.push(transition.inp);
+                let new_node_addr = transition.addr;
+                node = fst.node(new_node_addr);
+            }
+            else {
+                return false;
+            }
+        }
+        return true;
+    }
+
     fn term_ord<K: AsRef<[u8]>>(&self, key: K) -> Option<TermOrdinal> {
         self.fst_index.get(key)
     }

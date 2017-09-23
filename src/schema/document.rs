@@ -17,7 +17,6 @@ pub struct Document {
     facets: Vec<Facet>,
 }
 
-
 impl PartialEq for Document {
     fn eq(&self, other: &Document) -> bool {
         // super slow, but only here for tests
