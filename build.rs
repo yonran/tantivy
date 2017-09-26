@@ -3,7 +3,7 @@ mod build {
     extern crate gcc;
 
     pub fn build() {
-        let mut config = gcc::Config::new();
+        let mut config = gcc::Build::new();
         config
             .include("./cpp/simdcomp/include")
             .file("cpp/simdcomp/src/avxbitpacking.c")

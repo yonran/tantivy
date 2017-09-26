@@ -188,6 +188,14 @@ impl<'a> SegmentWriter<'a> {
                 }
             }
         }
+
+        let facet_field = schema.get_field("facet");
+        for facet in doc.facets() {
+            for prefix_facets in facet.prefixes() {
+                // self.multifield_postings.index_text(doc_id, facet_field, &mut token_stream)
+            }
+        }
+
         self.fieldnorms_writer.fill_val_up_to(doc_id);
         self.fast_field_writers.add_document(&doc);
         doc.filter_fields(|field| {
@@ -229,16 +237,16 @@ fn write(
     mut serializer: SegmentSerializer,
 ) -> Result<()> {
 
-    try!(multifield_postings.serialize(
+    multifield_postings.serialize(
         serializer.get_postings_serializer(),
-    ));
-    try!(fast_field_writers.serialize(
+    )?;
+    fast_field_writers.serialize(
         serializer.get_fast_field_serializer(),
-    ));
-    try!(fieldnorms_writer.serialize(
+    )?;
+    fieldnorms_writer.serialize(
         serializer.get_fieldnorms_serializer(),
-    ));
-    try!(serializer.close());
+    )?;
+    serializer.close()?;
 
     Ok(())
 }

@@ -81,6 +81,11 @@ impl Document {
         &self.field_values
     }
 
+    // Returns the list of facets associated to the `Document`.
+    pub fn facets(&self) -> &[Facet] {
+        &self.facets[..]
+    }
+
     /// Sort and groups the field_values by field.
     ///
     /// The result of this method is not cached and is

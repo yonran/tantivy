@@ -8,7 +8,8 @@ use std::borrow::Cow;
 
 pub struct Facet(String);
 
-const SEP: &'static str = "\u{31}";
+const SEP: &'static str = "\u{1f}";
+const SEP_BYTE: u8 = 31u8;
 
 #[derive(Copy, Clone)]
 enum State {
@@ -17,11 +18,20 @@ enum State {
 }
 
 impl Facet {
+
+    pub(crate) fn encoded(&self) -> &str {
+        &self.0
+    }
+
+    pub(crate) fn from_encoded(encoded_str: String) -> Facet {
+        Facet(encoded_str)
+    }
+
     pub fn from_path<Path>(path: Path) -> Facet
         where
             Path: IntoIterator,
             Path::Item: Display {
-        Facet(join(path, "\u{31}"))
+        Facet(join(path, SEP))
     }
 
     pub fn from_str(path: &str) -> Facet {
@@ -45,8 +55,21 @@ impl Facet {
         Facet(facet_encoded)
     }
 
-    pub fn steps<'a>(&'a self) -> str::Split<'a, &&str> {
+    pub fn steps(&self) -> str::Split<&&str> {
         self.0.split(&SEP)
+    }
+
+    pub fn prefixes(&self) -> Vec<&[u8]> {
+        let bytes = self.0.as_bytes();
+        let mut prefixes: Vec<&[u8]> = bytes
+            .iter()
+            .cloned()
+            .enumerate()
+            .filter(|&(_, b)| b==SEP_BYTE)
+            .map(|(pos, _)| &bytes[0..pos])
+            .collect();
+        prefixes.push(bytes);
+        prefixes
     }
 }
 

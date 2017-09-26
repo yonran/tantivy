@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use schema::field_type::ValueParsingError;
 use std::sync::Arc;
 use std::fmt;
+use std::collections::hash_map::Entry;
 use serde_json::{self, Value as JsonValue, Map as JsonObject};
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::ser::SerializeSeq;
@@ -88,13 +89,19 @@ impl SchemaBuilder {
         self.add_field(field_entry)
     }
 
-
     /// Adds a field entry to the schema in build.
     fn add_field(&mut self, field_entry: FieldEntry) -> Field {
         let field = Field(self.fields.len() as u32);
         let field_name = field_entry.name().to_string();
+        match self.fields_map.entry(field_name) {
+            Entry::Occupied(_) => {
+                panic!("Field {} already exists", field_entry.name());
+            }
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(field);
+            }
+        }
         self.fields.push(field_entry);
-        self.fields_map.insert(field_name, field);
         field
     }
 

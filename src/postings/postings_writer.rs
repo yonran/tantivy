@@ -80,7 +80,6 @@ impl<'a> MultiFieldPostingsWriter<'a> {
         postings_writer.suscribe(&mut self.term_index, doc, 0u32, term, self.heap)
     }
 
-
     /// Serialize the inverted index.
     /// It pushes all term, one field at a time, towards the
     /// postings serializer.

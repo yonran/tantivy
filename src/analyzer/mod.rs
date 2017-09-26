@@ -7,6 +7,7 @@ mod analyzer_manager;
 mod japanese_tokenizer;
 mod token_stream_chain;
 mod raw_tokenizer;
+mod facet_analyzer;
 
 
 pub use self::analyzer::{box_analyzer, Analyzer, Token, TokenFilterFactory, TokenStream};
@@ -15,6 +16,7 @@ pub use self::analyzer_manager::AnalyzerManager;
 pub use self::simple_tokenizer::SimpleTokenizer;
 pub use self::raw_tokenizer::RawTokenizer;
 pub use self::token_stream_chain::TokenStreamChain;
+pub use self::facet_analyzer::FacetTokenizer;
 pub use self::japanese_tokenizer::JapaneseTokenizer;
 pub use self::remove_long::RemoveLongFilter;
 pub use self::lower_caser::LowerCaser;
