@@ -745,55 +745,12 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected="Field text already exists")]
     fn test_wrong_fast_field_type() {
         let mut schema_builder = SchemaBuilder::default();
         let fast_field_unsigned = schema_builder.add_u64_field("unsigned", FAST);
         let fast_field_signed = schema_builder.add_i64_field("signed", FAST);
         let text_field = schema_builder.add_text_field("text", TEXT);
         let stored_int_field = schema_builder.add_u64_field("text", INT_STORED);
-        let schema = schema_builder.build();
-
-        let index = Index::create_in_ram(schema);
-        let mut index_writer = index.writer_with_num_threads(1, 50_000_000).unwrap();
-        {
-            let document = doc!(fast_field_unsigned => 4u64, fast_field_signed=>4i64);
-            index_writer.add_document(document);
-            index_writer.commit().unwrap();
-        }
-
-        index.load_searchers().unwrap();
-        let searcher = index.searcher();
-        let segment_reader: &SegmentReader = searcher.segment_reader(0);
-        {
-            let fast_field_reader_res =
-                segment_reader.get_fast_field_reader::<U64FastFieldReader>(text_field);
-            assert!(fast_field_reader_res.is_err());
-        }
-        {
-            let fast_field_reader_res =
-                segment_reader.get_fast_field_reader::<U64FastFieldReader>(stored_int_field);
-            assert!(fast_field_reader_res.is_err());
-        }
-        {
-            let fast_field_reader_res =
-                segment_reader.get_fast_field_reader::<U64FastFieldReader>(fast_field_signed);
-            assert!(fast_field_reader_res.is_err());
-        }
-        {
-            let fast_field_reader_res =
-                segment_reader.get_fast_field_reader::<I64FastFieldReader>(fast_field_signed);
-            assert!(fast_field_reader_res.is_ok());
-            let fast_field_reader = fast_field_reader_res.unwrap();
-            assert_eq!(fast_field_reader.get(0), 4i64)
-        }
-
-        {
-            let fast_field_reader_res =
-                segment_reader.get_fast_field_reader::<I64FastFieldReader>(fast_field_signed);
-            assert!(fast_field_reader_res.is_ok());
-            let fast_field_reader = fast_field_reader_res.unwrap();
-            assert_eq!(fast_field_reader.get(0), 4i64)
-        }
-
     }
 }
