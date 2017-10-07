@@ -374,7 +374,7 @@ mod tests {
     pub fn test_schema_serialization() {
         let mut schema_builder = SchemaBuilder::default();
         let count_options = IntOptions::default().set_stored().set_fast_singlevalued();
-        let popularity_options = IntOptions::default().set_stored().set_fast_singlevalued();
+        let popularity_options = IntOptions::default().set_stored();
         schema_builder.add_text_field("title", TEXT);
         schema_builder.add_text_field("author", STRING);
         schema_builder.add_u64_field("count", count_options);
@@ -409,7 +409,7 @@ mod tests {
     "type": "u64",
     "options": {
       "indexed": false,
-      "fast": true,
+      "fast": "single",
       "stored": true
     }
   },
@@ -418,7 +418,6 @@ mod tests {
     "type": "i64",
     "options": {
       "indexed": false,
-      "fast": true,
       "stored": true
     }
   }

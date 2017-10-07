@@ -3,15 +3,17 @@ use std::ops::BitOr;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum FastFieldCardinality {
-    SINGLE_VALUE,
-    MULTI_VALUES,
-    None
+    #[serde(rename = "single")]
+    SingleValue,
+    #[serde(rename = "multi")]
+    MultiValues
 }
 
 /// Define how an int field should be handled by tantivy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntOptions {
     indexed: bool,
+    #[serde(skip_serializing_if="Option::is_none")]
     fast: Option<FastFieldCardinality>,
     stored: bool,
 }
@@ -62,12 +64,12 @@ impl IntOptions {
     }
 
     pub fn set_fast_singlevalued(mut self) -> IntOptions {
-        self.fast = Some(FastFieldCardinality::SINGLE_VALUE);
+        self.fast = Some(FastFieldCardinality::SingleValue);
         self
     }
 
     pub fn set_fast_multivalued(mut self) -> IntOptions {
-        self.fast = Some(FastFieldCardinality::MULTI_VALUES);
+        self.fast = Some(FastFieldCardinality::MultiValues);
         self
     }
 
@@ -93,7 +95,7 @@ impl Default for IntOptions {
 pub const FAST: IntOptions = IntOptions {
     indexed: false,
     stored: false,
-    fast: Some(FastFieldCardinality::SINGLE_VALUE),
+    fast: Some(FastFieldCardinality::SingleValue),
 };
 
 /// Shortcut for a u64 indexed field.

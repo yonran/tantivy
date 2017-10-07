@@ -143,6 +143,7 @@ pub use self::int_options::IntOptions;
 pub use self::int_options::FAST;
 pub use self::int_options::INT_INDEXED;
 pub use self::int_options::INT_STORED;
+pub use self::int_options::FastFieldCardinality;
 
 use regex::Regex;
 

@@ -1,4 +1,4 @@
-use schema::{Schema, Field, Document};
+use schema::{Schema, Field, Document, FastFieldCardinality};
 use fastfield::FastFieldSerializer;
 use std::io;
 use schema::Value;
@@ -12,7 +12,7 @@ use common::BinarySerializable;
 /// The fastfieldswriter regroup all of the fast field writers.
 pub struct FastFieldsWriter {
     single_value_writers: Vec<IntFastFieldWriter>,
-    multi_values_writers: Vec<IntFastFieldWriter>,
+    multi_values_writers: Vec<MultiValueIntFastFieldWriter>,
 }
 
 impl FastFieldsWriter {
@@ -23,18 +23,25 @@ impl FastFieldsWriter {
 
         for (field_id, field_entry) in schema.fields().iter().enumerate() {
             let field = Field(field_id as u32);
+            let default_value =
+                if let FieldType::I64(_) = *field_entry.field_type() {
+                    common::i64_to_u64(0i64)
+                } else {
+                    0u64
+                };
             match *field_entry.field_type() {
-                FieldType::I64(ref int_options) => {
-                    if int_options.is_fast() {
-                        let mut fast_field_writer = IntFastFieldWriter::new(field);
-                        fast_field_writer.set_val_if_missing(common::i64_to_u64(0i64));
-                        single_value_writers.push(fast_field_writer);
-                    }
-                }
-                FieldType::U64(ref int_options) => {
-                    if int_options.is_fast() {
-                        let mut fast_field_writer = IntFastFieldWriter::new(field);
-                        single_value_writers.push(fast_field_writer);
+                FieldType::I64(ref int_options) | FieldType::U64(ref int_options) => {
+                    match int_options.get_fastfield_cardinality() {
+                        Some(FastFieldCardinality::SingleValue) => {
+                            let mut fast_field_writer = IntFastFieldWriter::new(field);
+                            fast_field_writer.set_val_if_missing(default_value);
+                            single_value_writers.push(fast_field_writer);
+                        }
+                        Some(FastFieldCardinality::MultiValues) => {
+                            let fast_field_writer = MultiValueIntFastFieldWriter::new(field);
+                            multi_values_writers.push(fast_field_writer);
+                        }
+                        None => {}
                     }
                 }
                 _ => {},
