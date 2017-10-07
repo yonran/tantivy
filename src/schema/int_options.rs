@@ -1,10 +1,18 @@
 use std::ops::BitOr;
 
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum FastFieldCardinality {
+    SINGLE_VALUE,
+    MULTI_VALUES,
+    None
+}
+
 /// Define how an int field should be handled by tantivy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntOptions {
     indexed: bool,
-    fast: bool,
+    fast: Option<FastFieldCardinality>,
     stored: bool,
 }
 
@@ -14,7 +22,6 @@ impl IntOptions {
         self.stored
     }
 
-
     /// Returns true iff the value is indexed.
     pub fn is_indexed(&self) -> bool {
         self.indexed
@@ -22,7 +29,7 @@ impl IntOptions {
 
     /// Returns true iff the value is a fast field.
     pub fn is_fast(&self) -> bool {
-        self.fast
+        self.fast.is_some()
     }
 
     /// Set the u64 options as stored.
@@ -43,24 +50,38 @@ impl IntOptions {
         self
     }
 
-    /// Set the u64 options as a fast field.
+    /// Set the u64 options as a single-valued fast field.
     ///
     /// Fast fields are designed for random access.
     /// Access time are similar to a random lookup in an array.
     /// If more than one value is associated to a fast field, only the last one is
     /// kept.
-    pub fn set_fast(mut self) -> IntOptions {
-        self.fast = true;
+    pub fn set_fast(mut self, cardinality: FastFieldCardinality) -> IntOptions {
+        self.fast = Some(cardinality);
         self
+    }
+
+    pub fn set_fast_singlevalued(mut self) -> IntOptions {
+        self.fast = Some(FastFieldCardinality::SINGLE_VALUE);
+        self
+    }
+
+    pub fn set_fast_multivalued(mut self) -> IntOptions {
+        self.fast = Some(FastFieldCardinality::MULTI_VALUES);
+        self
+    }
+
+    pub fn get_fastfield_cardinality(&self) -> Option<FastFieldCardinality> {
+        self.fast
     }
 }
 
 impl Default for IntOptions {
     fn default() -> IntOptions {
         IntOptions {
-            fast: false,
             indexed: false,
             stored: false,
+            fast: None,
         }
     }
 }
@@ -72,7 +93,7 @@ impl Default for IntOptions {
 pub const FAST: IntOptions = IntOptions {
     indexed: false,
     stored: false,
-    fast: true,
+    fast: Some(FastFieldCardinality::SINGLE_VALUE),
 };
 
 /// Shortcut for a u64 indexed field.
@@ -81,7 +102,7 @@ pub const FAST: IntOptions = IntOptions {
 pub const INT_INDEXED: IntOptions = IntOptions {
     indexed: true,
     stored: false,
-    fast: false,
+    fast: None,
 };
 
 /// Shortcut for a u64 stored field.
@@ -90,7 +111,7 @@ pub const INT_INDEXED: IntOptions = IntOptions {
 pub const INT_STORED: IntOptions = IntOptions {
     indexed: false,
     stored: true,
-    fast: false,
+    fast: None,
 };
 
 
@@ -101,7 +122,7 @@ impl BitOr for IntOptions {
         let mut res = IntOptions::default();
         res.indexed = self.indexed | other.indexed;
         res.stored = self.stored | other.stored;
-        res.fast = self.fast | other.fast;
+        res.fast = self.fast.or(other.fast);
         res
     }
 }

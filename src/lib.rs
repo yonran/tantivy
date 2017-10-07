@@ -201,7 +201,7 @@ mod tests {
     use schema::*;
     use DocSet;
     use IndexWriter;
-    use fastfield::{FastFieldReader, U64FastFieldReader, I64FastFieldReader};
+    use fastfield::FastFieldReader;
     use Postings;
     use rand::{XorShiftRng, Rng, SeedableRng};
 

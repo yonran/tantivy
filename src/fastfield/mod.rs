@@ -28,6 +28,7 @@ mod writer;
 mod serializer;
 mod error;
 mod delete;
+mod multivalued;
 
 pub use self::delete::write_delete_bitset;
 pub use self::delete::DeleteBitSet;

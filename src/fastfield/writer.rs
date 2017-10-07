@@ -6,59 +6,59 @@ use DocId;
 use schema::FieldType;
 use common;
 use common::VInt;
+use super::multivalued::MultiValueIntFastFieldWriter;
 use common::BinarySerializable;
 
 /// The fastfieldswriter regroup all of the fast field writers.
 pub struct FastFieldsWriter {
-    field_writers: Vec<IntFastFieldWriter>,
+    single_value_writers: Vec<IntFastFieldWriter>,
+    multi_values_writers: Vec<IntFastFieldWriter>,
 }
 
 impl FastFieldsWriter {
     /// Create all `FastFieldWriter` required by the schema.
     pub fn from_schema(schema: &Schema) -> FastFieldsWriter {
-        let field_writers: Vec<IntFastFieldWriter> = schema
-            .fields()
-            .iter()
-            .enumerate()
-            .flat_map(|(field_id, field_entry)| {
-                let field = Field(field_id as u32);
-                match *field_entry.field_type() {
-                    FieldType::I64(ref int_options) => {
-                        if int_options.is_fast() {
-                            let mut fast_field_writer = IntFastFieldWriter::new(field);
-                            fast_field_writer.set_val_if_missing(common::i64_to_u64(0i64));
-                            Some(fast_field_writer)
-                        } else {
-                            None
-                        }
+        let mut single_value_writers = Vec::new();
+        let mut multi_values_writers = Vec::new();
+
+        for (field_id, field_entry) in schema.fields().iter().enumerate() {
+            let field = Field(field_id as u32);
+            match *field_entry.field_type() {
+                FieldType::I64(ref int_options) => {
+                    if int_options.is_fast() {
+                        let mut fast_field_writer = IntFastFieldWriter::new(field);
+                        fast_field_writer.set_val_if_missing(common::i64_to_u64(0i64));
+                        single_value_writers.push(fast_field_writer);
                     }
-                    FieldType::U64(ref int_options) => {
-                        if int_options.is_fast() {
-                            Some(IntFastFieldWriter::new(field))
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
                 }
-            })
-            .collect();
-        FastFieldsWriter { field_writers: field_writers }
+                FieldType::U64(ref int_options) => {
+                    if int_options.is_fast() {
+                        let mut fast_field_writer = IntFastFieldWriter::new(field);
+                        single_value_writers.push(fast_field_writer);
+                    }
+                }
+                _ => {},
+            }
+        }
+        FastFieldsWriter {
+            single_value_writers: single_value_writers,
+            multi_values_writers: multi_values_writers,
+        }
     }
 
-    /// Returns a `FastFieldsWriter`
-    /// with a `IntFastFieldWriter` for each
+    /// Returns a `FastFieldsWriter with a `u64` `IntFastFieldWriter` for each
     /// of the field given in argument.
-    pub fn new(fields: Vec<Field>) -> FastFieldsWriter {
+    pub(crate) fn new(fields: Vec<Field>) -> FastFieldsWriter {
         FastFieldsWriter {
-            field_writers: fields.into_iter().map(IntFastFieldWriter::new).collect(),
+            single_value_writers: fields.into_iter().map(IntFastFieldWriter::new).collect(),
+            multi_values_writers: vec!(),
         }
     }
 
     /// Get the `FastFieldWriter` associated to a field.
     pub fn get_field_writer(&mut self, field: Field) -> Option<&mut IntFastFieldWriter> {
         // TODO optimize
-        self.field_writers.iter_mut().find(|field_writer| {
+        self.single_value_writers.iter_mut().find(|field_writer| {
             field_writer.field == field
         })
     }
@@ -66,7 +66,7 @@ impl FastFieldsWriter {
 
     /// Indexes all of the fastfields of a new document.
     pub fn add_document(&mut self, doc: &Document) {
-        for field_writer in &mut self.field_writers {
+        for field_writer in &mut self.single_value_writers {
             field_writer.add_document(doc);
         }
     }
@@ -74,7 +74,7 @@ impl FastFieldsWriter {
     /// Serializes all of the `FastFieldWriter`s by pushing them in
     /// order to the fast field serializer.
     pub fn serialize(&self, serializer: &mut FastFieldSerializer) -> io::Result<()> {
-        for field_writer in &self.field_writers {
+        for field_writer in &self.single_value_writers {
             field_writer.serialize(serializer)?;
         }
         Ok(())
@@ -85,7 +85,7 @@ impl FastFieldsWriter {
     ///
     /// The missing values will be filled with 0.
     pub fn fill_val_up_to(&mut self, doc: DocId) {
-        for field_writer in &mut self.field_writers {
+        for field_writer in &mut self.single_value_writers {
             field_writer.fill_val_up_to(doc);
         }
     }
@@ -207,7 +207,6 @@ impl IntFastFieldWriter {
         } else {
             (self.val_min, self.val_max)
         };
-
 
         let mut single_field_serializer = serializer.new_u64_fast_field(self.field, min, max)?;
 
