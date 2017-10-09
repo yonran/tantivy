@@ -33,6 +33,7 @@ pub use self::segment_postings::{SegmentPostings, BlockSegmentPostings};
 pub use self::intersection::IntersectionDocSet;
 pub use common::HasLen;
 
+pub(crate) type IntermediateTermId = usize;
 
 #[cfg(test)]
 mod tests {

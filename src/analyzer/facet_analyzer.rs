@@ -67,7 +67,7 @@ mod tests {
                 let facet = Facet::from_encoded(token.term.clone());
                 tokens.push(format!("{}", facet));
             };
-            FacetTokenizer.token_stream(facet.encoded()).process(&mut add_token);
+            FacetTokenizer.token_stream(facet.encoded_str()).process(&mut add_token);
         }
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0], "/top");

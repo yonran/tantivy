@@ -1,5 +1,6 @@
 use std::iter;
 use std::mem;
+use postings::IntermediateTermId;
 use super::heap::{Heap, HeapAllocable, BytesRef};
 
 mod murmurhash2 {
@@ -186,7 +187,7 @@ impl<'a> HashMap<'a> {
     }
 
 
-    pub fn get_or_create<S: AsRef<[u8]>, V: HeapAllocable>(&mut self, key: S) -> &mut V {
+    pub fn get_or_create<S: AsRef<[u8]>, V: HeapAllocable>(&mut self, key: S) -> (IntermediateTermId, &mut V) {
         let key_bytes: &[u8] = key.as_ref();
         let hash = murmurhash2::murmurhash2(key.as_ref());
         let mut probe = self.probe(hash);
@@ -198,11 +199,11 @@ impl<'a> HashMap<'a> {
                 let (addr, val): (u32, &mut V) = self.heap.allocate_object();
                 assert_eq!(addr, key_bytes_ref.addr() + 2 + key_bytes.len() as u32);
                 self.set_bucket(hash, key_bytes_ref, bucket);
-                return val;
+                return (bucket, val);
             } else if kv.hash == hash {
                 let (stored_key, expull_addr): (&[u8], u32) = self.get_key_value(kv.key_value_addr);
                 if stored_key == key_bytes {
-                    return self.heap.get_mut_ref(expull_addr);
+                    return (bucket, self.heap.get_mut_ref(expull_addr));
                 }
             }
         }
@@ -248,21 +249,21 @@ mod tests {
         let heap = Heap::with_capacity(2_000_000);
         let mut hash_map: HashMap = HashMap::new(18, &heap);
         {
-            let v: &mut TestValue = hash_map.get_or_create("abc");
+            let v: &mut TestValue = hash_map.get_or_create("abc").1;
             assert_eq!(v.val, 0u32);
             v.val = 3u32;
         }
         {
-            let v: &mut TestValue = hash_map.get_or_create("abcd");
+            let v: &mut TestValue = hash_map.get_or_create("abcd").1;
             assert_eq!(v.val, 0u32);
             v.val = 4u32;
         }
         {
-            let v: &mut TestValue = hash_map.get_or_create("abc");
+            let v: &mut TestValue = hash_map.get_or_create("abc").1;
             assert_eq!(v.val, 3u32);
         }
         {
-            let v: &mut TestValue = hash_map.get_or_create("abcd");
+            let v: &mut TestValue = hash_map.get_or_create("abcd").1;
             assert_eq!(v.val, 4u32);
         }
         let mut iter_values = hash_map.iter();

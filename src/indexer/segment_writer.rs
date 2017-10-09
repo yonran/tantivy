@@ -6,6 +6,7 @@ use schema::Term;
 use core::Segment;
 use core::SerializableSegment;
 use fastfield::FastFieldsWriter;
+use analyzer::{Analyzer, TokenStream, FacetTokenizer};
 use schema::Field;
 use schema::FieldType;
 use indexer::segment_serializer::SegmentSerializer;
@@ -143,8 +144,25 @@ impl<'a> SegmentWriter<'a> {
                 continue;
             }
             match *field_options.field_type() {
-
                 FieldType::HierarchicalFacet => {
+                    let facets: Vec<&str> = field_values.iter()
+                        .flat_map(|field_value| {
+                            match field_value.value() {
+                                &Value::HierarchicalFacet(ref facet) => Some(facet.encoded_str()),
+                                _ => None
+                            }
+                        })
+                        .collect();
+                    let mut term = unsafe {Term::with_capacity(100)};
+                    term.set_field(field);
+                    for facet in facets {
+                        FacetTokenizer.token_stream(&facet)
+                            .process(&mut |ref token| {
+                                term.set_text(&token.term);
+                                self.multifield_postings.suscribe(doc_id, &term);
+
+                            });
+                    }
 
                 }
                 FieldType::Str(_) => {
@@ -160,8 +178,7 @@ impl<'a> SegmentWriter<'a> {
                                 .collect();
                             let mut token_stream = analyzer.token_stream_texts(&texts[..]);
                             self.multifield_postings.index_text(doc_id, field, &mut token_stream)
-                        }
-                        else {
+                        } else {
                             0
                         };
                     self.fieldnorms_writer

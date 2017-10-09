@@ -19,7 +19,12 @@ enum State {
     Idle,
 }
 
-impl Facet
+impl Facet {
+
+
+    pub(crate) fn encoded_str(&self) -> &str {
+        &self.0
+    }
 
     pub(crate) fn from_encoded(encoded_str: String) -> Facet {
         Facet(encoded_str)
