@@ -166,10 +166,10 @@ impl MmapDirectory {
     /// This is mostly useful to test the MmapDirectory itself.
     /// For your unit tests, prefer the RAMDirectory.
     pub fn create_from_tempdir() -> io::Result<MmapDirectory> {
-        let tempdir = try!(TempDir::new("index"));
+        let tempdir = TempDir::new("index")?;
         let tempdir_path = PathBuf::from(tempdir.path());
         let directory = MmapDirectory {
-            root_path: PathBuf::from(tempdir_path),
+            root_path: tempdir_path,
             mmap_cache: Arc::new(RwLock::new(MmapCache::default())),
             _temp_directory: Arc::new(Some(tempdir)),
         };

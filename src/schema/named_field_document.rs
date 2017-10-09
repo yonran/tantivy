@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use schema::Value;
 use std::fmt;
-use schema::Facet;
 use serde::{Serialize, Deserialize, Deserializer, Serializer};
 use serde::de::Visitor;
 
@@ -12,10 +11,7 @@ use serde::de::Visitor;
 /// as a `BTreeMap<String, Vec<Value>>`.
 ///
 #[derive(Serialize, Default)]
-pub struct NamedFieldDocument {
-    fields: BTreeMap<String, Vec<ImplicitelyTypedValue>>,
-    facets: Vec<Facet>,
-}
+pub struct NamedFieldDocument(BTreeMap<String, Vec<ImplicitelyTypedValue>>);
 
 impl NamedFieldDocument {
 
@@ -28,7 +24,7 @@ impl NamedFieldDocument {
             .into_iter()
             .map(ImplicitelyTypedValue)
             .collect();
-        self.fields.insert(field_name, typed_value);
+        self.0.insert(field_name, typed_value);
     }
 }
 
@@ -43,6 +39,7 @@ impl Serialize for ImplicitelyTypedValue {
             Value::Str(ref v) => serializer.serialize_str(v),
             Value::U64(u) => serializer.serialize_u64(u),
             Value::I64(u) => serializer.serialize_i64(u),
+            Value::HierarchicalFacet(ref facet) => facet.serialize(serializer),
         }
     }
 }

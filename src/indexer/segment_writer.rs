@@ -61,7 +61,7 @@ impl<'a> SegmentWriter<'a> {
                        mut segment: Segment,
                        schema: &Schema)
                        -> Result<SegmentWriter<'a>> {
-        let segment_serializer = try!(SegmentSerializer::for_segment(&mut segment));
+        let segment_serializer = SegmentSerializer::for_segment(&mut segment)?;
         let multifield_postings = MultiFieldPostingsWriter::new(schema, table_bits, heap);
         let analyzers = schema.fields()
             .iter()
@@ -143,6 +143,10 @@ impl<'a> SegmentWriter<'a> {
                 continue;
             }
             match *field_options.field_type() {
+
+                FieldType::HierarchicalFacet => {
+
+                }
                 FieldType::Str(_) => {
                     let num_tokens =
                         if let Some(ref mut analyzer) = self.analyzers[field.0 as usize] {
@@ -189,12 +193,7 @@ impl<'a> SegmentWriter<'a> {
             }
         }
 
-        let facet_field = schema.get_field("facet");
-        for facet in doc.facets() {
-            for prefix_facets in facet.prefixes() {
-                // self.multifield_postings.index_text(doc_id, facet_field, &mut token_stream)
-            }
-        }
+
 
         self.fieldnorms_writer.fill_val_up_to(doc_id);
         self.fast_field_writers.add_document(&doc);

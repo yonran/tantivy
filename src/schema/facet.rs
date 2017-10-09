@@ -1,11 +1,13 @@
 use itertools::join;
 use std::fmt::{self, Display, Debug, Formatter};
 use std::str;
+use std::io::{self, Read, Write};
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
+use common::BinarySerializable;
 
-
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Facet(String);
 
 const SEP: &'static str = "\u{1f}";
@@ -17,11 +19,7 @@ enum State {
     Idle,
 }
 
-impl Facet {
-
-    pub(crate) fn encoded(&self) -> &str {
-        &self.0
-    }
+impl Facet
 
     pub(crate) fn from_encoded(encoded_str: String) -> Facet {
         Facet(encoded_str)
@@ -70,6 +68,16 @@ impl Facet {
             .collect();
         prefixes.push(bytes);
         prefixes
+    }
+}
+
+impl BinarySerializable for Facet {
+    fn serialize<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        <String as BinarySerializable>::serialize(&self.0, writer)
+    }
+
+    fn deserialize<R: Read>(reader: &mut R) -> io::Result<Self> {
+        Ok(Facet(<String as BinarySerializable>::deserialize(reader)?))
     }
 }
 

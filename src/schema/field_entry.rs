@@ -49,6 +49,14 @@ impl FieldEntry {
     }
 
 
+    pub fn new_facet(field_name: String) -> FieldEntry {
+        FieldEntry {
+            name: field_name,
+            field_type: FieldType::HierarchicalFacet,
+        }
+    }
+
+
     /// Returns the name of the field
     pub fn name(&self) -> &str {
         &self.name
@@ -65,6 +73,7 @@ impl FieldEntry {
             FieldType::Str(ref options) => options.get_indexing_options().is_some(),
             FieldType::U64(ref options) |
             FieldType::I64(ref options) => options.is_indexed(),
+            FieldType::HierarchicalFacet => true,
         }
     }
 
@@ -83,6 +92,8 @@ impl FieldEntry {
             FieldType::U64(ref options) |
             FieldType::I64(ref options) => options.is_stored(),
             FieldType::Str(ref options) => options.is_stored(),
+            FieldType::HierarchicalFacet => true,
+            // TODO make stored hierachical facet optional
         }
     }
 }
@@ -107,6 +118,9 @@ impl Serialize for FieldEntry {
             FieldType::I64(ref options) => {
                 s.serialize_field("type", "i64")?;
                 s.serialize_field("options", options)?;
+            }
+            FieldType::HierarchicalFacet => {
+                s.serialize_field("type", "hierarchical_facet")?;
             }
         }
 
@@ -169,13 +183,16 @@ impl<'de> Deserialize<'de> for FieldEntry {
                                 Some(ty) => {
                                     match ty {
                                         "text" => {
-                                            field_type = Some(FieldType::Str(map.next_value()?))
+                                            field_type = Some(FieldType::Str(map.next_value()?));
                                         }
                                         "u64" => {
-                                            field_type = Some(FieldType::U64(map.next_value()?))
+                                            field_type = Some(FieldType::U64(map.next_value()?));
                                         }
                                         "i64" => {
-                                            field_type = Some(FieldType::I64(map.next_value()?))
+                                            field_type = Some(FieldType::I64(map.next_value()?));
+                                        }
+                                        "hierarchical_facet" => {
+                                            field_type = Some(FieldType::HierarchicalFacet);
                                         }
                                         _ => {
                                             let msg = format!("Unrecognised type {}", ty);

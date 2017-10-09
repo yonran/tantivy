@@ -51,9 +51,8 @@ impl SchemaBuilder {
     /// by the second one.
     /// The first field will get a field id
     /// but only the second one will be indexed
-    pub fn add_u64_field(&mut self, field_name_str: &str, field_options: IntOptions) -> Field {
-        let field_name = String::from(field_name_str);
-        let field_entry = FieldEntry::new_u64(field_name, field_options);
+    pub fn add_u64_field(&mut self, field_name: &str, field_options: IntOptions) -> Field {
+        let field_entry = FieldEntry::new_u64(field_name.to_owned(), field_options);
         self.add_field(field_entry)
     }
 
@@ -67,9 +66,8 @@ impl SchemaBuilder {
     /// by the second one.
     /// The first field will get a field id
     /// but only the second one will be indexed
-    pub fn add_i64_field(&mut self, field_name_str: &str, field_options: IntOptions) -> Field {
-        let field_name = String::from(field_name_str);
-        let field_entry = FieldEntry::new_i64(field_name, field_options);
+    pub fn add_i64_field(&mut self, field_name: &str, field_options: IntOptions) -> Field {
+        let field_entry = FieldEntry::new_i64(field_name.to_string(), field_options);
         self.add_field(field_entry)
     }
 
@@ -83,9 +81,14 @@ impl SchemaBuilder {
     /// by the second one.
     /// The first field will get a field id
     /// but only the second one will be indexed
-    pub fn add_text_field(&mut self, field_name_str: &str, field_options: TextOptions) -> Field {
-        let field_name = String::from(field_name_str);
-        let field_entry = FieldEntry::new_text(field_name, field_options);
+    pub fn add_text_field(&mut self, field_name: &str, field_options: TextOptions) -> Field {
+        let field_entry = FieldEntry::new_text(field_name.to_owned(), field_options);
+        self.add_field(field_entry)
+    }
+
+
+    pub fn add_facet_field(&mut self, field_name: &str) -> Field {
+        let field_entry = FieldEntry::new_facet(field_name.to_string());
         self.add_field(field_entry)
     }
 
@@ -104,7 +107,6 @@ impl SchemaBuilder {
         self.fields.push(field_entry);
         field
     }
-
 
     /// Finalize the creation of a `Schema`
     /// This will consume your `SchemaBuilder`
@@ -223,51 +225,34 @@ impl Schema {
 
         let mut doc = Document::default();
 
-        if let Some(fields_json) = json_obj
-                .get("fields")
-                .and_then(|fields_json| {
-                    fields_json.as_object()
-                }) {
-            for (field_name, json_value) in fields_json.iter() {
-                match self.get_field(field_name) {
-                    Some(field) => {
-                        let field_entry = self.get_field_entry(field);
-                        let field_type = field_entry.field_type();
-                        match *json_value {
-                            JsonValue::Array(ref json_items) => {
-                                for json_item in json_items {
-                                    let value = field_type
-                                        .value_from_json(json_item)
-                                        .map_err(|e| {
-                                            DocParsingError::ValueError(field_name.clone(), e)
-                                        })?;
-                                    doc.add(FieldValue::new(field, value));
-                                }
-                            }
-                            _ => {
+        for (field_name, json_value) in json_obj.iter() {
+            match self.get_field(field_name) {
+                Some(field) => {
+                    let field_entry = self.get_field_entry(field);
+                    let field_type = field_entry.field_type();
+                    match *json_value {
+                        JsonValue::Array(ref json_items) => {
+                            for json_item in json_items {
                                 let value = field_type
-                                    .value_from_json(json_value)
+                                    .value_from_json(json_item)
                                     .map_err(|e| {
                                         DocParsingError::ValueError(field_name.clone(), e)
                                     })?;
                                 doc.add(FieldValue::new(field, value));
                             }
-
                         }
-                    }
-                    None => return Err(DocParsingError::NoSuchFieldInSchema(field_name.clone())),
-                }
-            }
-        }
+                        _ => {
+                            let value = field_type
+                                .value_from_json(json_value)
+                                .map_err(|e| {
+                                    DocParsingError::ValueError(field_name.clone(), e)
+                                })?;
+                            doc.add(FieldValue::new(field, value));
+                        }
 
-        if let Some(facets_json) = json_obj.get("facets") {
-            if let Some(facets) = facets_json.as_array() {
-                for facet_str_json in facets {
-                    if let Some(facet_str) = facet_str_json.as_str() {
-                        let facet = Facet::from_str(facet_str);
-                        doc.add_facet(facet);
                     }
                 }
+                None => return Err(DocParsingError::NoSuchFieldInSchema(field_name.clone())),
             }
         }
 
@@ -445,11 +430,9 @@ mod tests {
         schema_builder.add_u64_field("count", count_options);
         let schema = schema_builder.build();
         let doc_json = r#"{
-                "fields": {
-                    "title": "my title",
-                    "author": "fulmicoton",
-                    "count": 4
-                }
+            "title": "my title",
+            "author": "fulmicoton",
+            "count": 4
         }"#;
         let doc = schema.parse_document(doc_json).unwrap();
         let doc_serdeser = schema.parse_document(&schema.to_json(&doc)).unwrap();
@@ -457,20 +440,19 @@ mod tests {
     }
 
     #[test]
-    pub fn test_document_with_facet_to_json() {
+    pub fn test_document_with_facet_from_json() {
         let mut schema_builder = SchemaBuilder::default();
         let count_options = IntOptions::default().set_stored().set_fast_singlevalued();
         schema_builder.add_text_field("title", TEXT);
         schema_builder.add_text_field("author", STRING);
         schema_builder.add_u64_field("count", count_options);
+        schema_builder.add_facet_field("facets");
         let schema = schema_builder.build();
         let doc_json = r#"{
-                "fields": {
-                    "title": "my title",
-                    "author": "fulmicoton",
-                    "count": 4
-                },
-                "facets": ["/top/2/coucou"]
+            "title": "my title",
+            "author": "fulmicoton",
+            "count": 4,
+            "facets": ["/top/2/coucou"]
         }"#;
         let doc = schema.parse_document(doc_json).unwrap();
         let doc_serdeser = schema.parse_document(&schema.to_json(&doc)).unwrap();
@@ -494,12 +476,10 @@ mod tests {
         {
             let doc = schema
                 .parse_document(r#"{
-                    "fields": {
-                        "title": "my title",
-                        "author": "fulmicoton",
-                        "count": 4,
-                        "popularity": 10
-                    }
+                "title": "my title",
+                "author": "fulmicoton",
+                "count": 4,
+                "popularity": 10
             }"#,
                 )
                 .unwrap();
@@ -511,13 +491,11 @@ mod tests {
         {
             let json_err = schema.parse_document(
                 r#"{
-                   "fields": {
-                       "title": "my title",
-                       "author": "fulmicoton",
-                       "count": 4,
-                       "popularity": 10,
-                       "jambon": "bayonne"
-                   }
+               "title": "my title",
+               "author": "fulmicoton",
+               "count": 4,
+               "popularity": 10,
+               "jambon": "bayonne"
             }"#,
             );
             match json_err {
@@ -532,13 +510,11 @@ mod tests {
         {
             let json_err = schema.parse_document(
                 r#"{
-                    "fields": {
-                        "title": "my title",
-                        "author": "fulmicoton",
-                        "count": "5",
-                        "popularity": "10",
-                        "jambon": "bayonne"
-                    }
+                    "title": "my title",
+                    "author": "fulmicoton",
+                    "count": "5",
+                    "popularity": "10",
+                    "jambon": "bayonne"
             }"#,
             );
             match json_err {
@@ -553,12 +529,10 @@ mod tests {
         {
             let json_err = schema.parse_document(
                 r#"{
-                "fields": {
                 "title": "my title",
                 "author": "fulmicoton",
                 "count": -5,
                 "popularity": 10
-                }
             }"#,
             );
             match json_err {
@@ -573,12 +547,10 @@ mod tests {
         {
             let json_err = schema.parse_document(
                 r#"{
-                 "fields: {
-                    "title": "my title",
-                    "author": "fulmicoton",
-                    "count": 9223372036854775808,
-                    "popularity": 10
-                 }
+                "title": "my title",
+                "author": "fulmicoton",
+                "count": 9223372036854775808,
+                "popularity": 10
             }"#,
             );
             match json_err {
@@ -593,12 +565,10 @@ mod tests {
         {
             let json_err = schema.parse_document(
                 r#"{
-                    "fields": {
-                        "title": "my title",
-                        "author": "fulmicoton",
-                        "count": 50,
-                        "popularity": 9223372036854775808
-                    }
+                    "title": "my title",
+                    "author": "fulmicoton",
+                    "count": 50,
+                    "popularity": 9223372036854775808
             }"#,
             );
             match json_err {
@@ -613,12 +583,10 @@ mod tests {
         {
             let json_err = schema.parse_document(
                 r#"{
-                    "fields": {
-                        "title": "my title",
-                        "author": "fulmicoton",
-                        "count": 50,
-                    }
-            }"#,
+                    "title": "my title",
+                    "author": "fulmicoton",
+                    "count": 50,
+                }"#,
             );
             match json_err {
                 Err(NotJSON(_)) => {

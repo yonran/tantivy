@@ -1,3 +1,7 @@
+use common::BinarySerializable;
+use std::io::{self, Read, Write};
+use schema::Facet;
+
 /// Value represents the value of a any field.
 /// It is an enum over all over all of the possible field type.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -8,6 +12,8 @@ pub enum Value {
     U64(u64),
     /// Signed 64-bits Integer `i64`
     I64(i64),
+    /// Hierarchical Facet
+    HierarchicalFacet(Facet),
 }
 
 
@@ -71,56 +77,60 @@ impl<'a> From<&'a str> for Value {
     }
 }
 
-mod binary_serialize {
-    use common::BinarySerializable;
-    use std::io::{self, Read, Write};
-    use super::Value;
 
-    const TEXT_CODE: u8 = 0;
-    const U64_CODE: u8 = 1;
-    const I64_CODE: u8 = 2;
 
-    impl BinarySerializable for Value {
-        fn serialize<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-            match *self {
-                Value::Str(ref text) => {
-                    TEXT_CODE.serialize(writer)?;
-                    text.serialize(writer)
-                }
-                Value::U64(ref val) => {
-                    U64_CODE.serialize(writer)?;
-                    val.serialize(writer)
-                }
-                Value::I64(ref val) => {
-                    I64_CODE.serialize(writer)?;
-                    val.serialize(writer)
-                }
+const TEXT_CODE: u8 = 0;
+const U64_CODE: u8 = 1;
+const I64_CODE: u8 = 2;
+const HIERARCHICAL_FACET_CODE: u8 = 3;
+
+impl BinarySerializable for Value {
+    fn serialize<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match *self {
+            Value::Str(ref text) => {
+                TEXT_CODE.serialize(writer)?;
+                text.serialize(writer)
+            }
+            Value::U64(ref val) => {
+                U64_CODE.serialize(writer)?;
+                val.serialize(writer)
+            }
+            Value::I64(ref val) => {
+                I64_CODE.serialize(writer)?;
+                val.serialize(writer)
+            }
+            Value::HierarchicalFacet(ref facet) => {
+                HIERARCHICAL_FACET_CODE.serialize(writer)?;
+                facet.serialize(writer)
             }
         }
-        fn deserialize<R: Read>(reader: &mut R) -> io::Result<Self> {
-            let type_code = try!(u8::deserialize(reader));
-            match type_code {
-                TEXT_CODE => {
-                    let text = try!(String::deserialize(reader));
-                    Ok(Value::Str(text))
-                }
-                U64_CODE => {
-                    let value = try!(u64::deserialize(reader));
-                    Ok(Value::U64(value))
-                }
-                I64_CODE => {
-                    let value = try!(i64::deserialize(reader));
-                    Ok(Value::I64(value))
-                }
-                _ => {
-                    Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!(
-                            "No field type is associated with code {:?}",
-                            type_code
-                        ),
-                    ))
-                }
+    }
+    fn deserialize<R: Read>(reader: &mut R) -> io::Result<Self> {
+        let type_code = u8::deserialize(reader)?;
+        match type_code {
+            TEXT_CODE => {
+                let text = String::deserialize(reader)?;
+                Ok(Value::Str(text))
+            }
+            U64_CODE => {
+                let value = u64::deserialize(reader)?;
+                Ok(Value::U64(value))
+            }
+            I64_CODE => {
+                let value = i64::deserialize(reader)?;
+                Ok(Value::I64(value))
+            }
+            HIERARCHICAL_FACET_CODE => {
+                 Ok(Value::HierarchicalFacet(Facet::deserialize(reader)?))
+            }
+            _ => {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "No field type is associated with code {:?}",
+                        type_code
+                    ),
+                ))
             }
         }
     }

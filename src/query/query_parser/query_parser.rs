@@ -196,12 +196,16 @@ impl QueryParser {
                     } else {
                         Ok(Some(LogicalLiteral::Phrase(terms)))
                     }
-                }
-                else {
+                } else {
                     // This should have been seen earlier really.
                     Err(QueryParserError::FieldNotIndexed(field_entry.name().to_string()))
                 }
             }
+            FieldType::HierarchicalFacet => {
+                let term = Term::from_field_text(field, phrase);
+                Ok(Some(LogicalLiteral::Term(term)))
+            }
+
         }
 
     }

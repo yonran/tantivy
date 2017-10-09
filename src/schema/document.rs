@@ -14,7 +14,6 @@ use itertools::Itertools;
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Document {
     field_values: Vec<FieldValue>,
-    facets: Vec<Facet>,
 }
 
 impl PartialEq for Document {
@@ -27,6 +26,7 @@ impl PartialEq for Document {
         self_field_values.eq(&other_field_values)
     }
 }
+
 
 impl Eq for Document {}
 
@@ -44,10 +44,6 @@ impl Document {
     /// Returns true iff the document contains no fields.
     pub fn is_empty(&self) -> bool {
         self.field_values.is_empty()
-    }
-
-    pub fn add_facet(&mut self, facet: Facet) {
-        self.facets.push(facet);
     }
 
     pub fn filter_fields<P: Fn(Field)->bool>(&mut self, predicate: P) {
@@ -79,11 +75,6 @@ impl Document {
     /// field_values accessor
     pub fn field_values(&self) -> &[FieldValue] {
         &self.field_values
-    }
-
-    // Returns the list of facets associated to the `Document`.
-    pub fn facets(&self) -> &[Facet] {
-        &self.facets[..]
     }
 
     /// Sort and groups the field_values by field.

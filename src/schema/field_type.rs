@@ -3,6 +3,7 @@ use schema::{TextOptions, IntOptions};
 use serde_json::Value as JsonValue;
 use schema::Value;
 use schema::IndexRecordOption;
+use schema::Facet;
 
 /// Possible error that may occur while parsing a field value
 /// At this point the JSON is known to be valid.
@@ -27,6 +28,8 @@ pub enum FieldType {
     U64(IntOptions),
     /// Signed 64-bits integers 64 field type configuration
     I64(IntOptions),
+    /// Hierachical Facet
+    HierarchicalFacet,
 }
 
 impl FieldType {
@@ -36,6 +39,7 @@ impl FieldType {
             FieldType::Str(ref text_options) => text_options.get_indexing_options().is_some(),
             FieldType::U64(ref int_options) |
             FieldType::I64(ref int_options) => int_options.is_indexed(),
+            FieldType::HierarchicalFacet => true,
         }
     }
 
@@ -58,6 +62,9 @@ impl FieldType {
                     None
                 }
             }
+            FieldType::HierarchicalFacet => {
+                Some(IndexRecordOption::Basic)
+            }
         }
     }
 
@@ -76,6 +83,9 @@ impl FieldType {
                         Err(ValueParsingError::TypeError(
                             format!("Expected an integer, got {:?}", json),
                         ))
+                    }
+                    FieldType::HierarchicalFacet => {
+                        Ok(Value::HierarchicalFacet(Facet::from_str(field_text)))
                     }
                 }
             }
@@ -97,7 +107,8 @@ impl FieldType {
                             Err(ValueParsingError::OverflowError(msg))
                         }
                     }
-                    FieldType::Str(_) => {
+                    FieldType::Str(_)
+                    | FieldType::HierarchicalFacet => {
                         let msg = format!("Expected a string, got {:?}", json);
                         Err(ValueParsingError::TypeError(msg))
                     }
