@@ -86,6 +86,7 @@ impl FastFieldReader for U64FastFieldReader {
     fn is_enabled(field_type: &FieldType) -> bool {
         match *field_type {
             FieldType::U64(ref integer_options) => integer_options.is_fast(),
+            FieldType::HierarchicalFacet => { true },
             _ => false,
         }
     }

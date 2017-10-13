@@ -51,6 +51,13 @@ impl Document {
             .retain(|field_value| predicate(field_value.field()));
     }
 
+    // TODO argument Into<Facet>
+    pub fn add_facet(&mut self, field: Field, path: &str) {
+        let facet = Facet::from_str(path);
+        let value = Value::HierarchicalFacet(facet);
+        self.add(FieldValue::new(field, value));
+    }
+
     /// Add a text field.
     pub fn add_text(&mut self, field: Field, text: &str) {
         let value = Value::Str(String::from(text));

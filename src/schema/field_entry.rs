@@ -172,6 +172,9 @@ impl<'de> Deserialize<'de> for FieldEntry {
                                 return Err(de::Error::duplicate_field("type"));
                             }
                             ty = Some(map.next_value()?);
+                            if ty == Some("hierarchical_facet") {
+                                field_type = Some(FieldType::HierarchicalFacet);
+                            }
                         }
                         Field::Options => {
                             match ty {
@@ -190,9 +193,6 @@ impl<'de> Deserialize<'de> for FieldEntry {
                                         }
                                         "i64" => {
                                             field_type = Some(FieldType::I64(map.next_value()?));
-                                        }
-                                        "hierarchical_facet" => {
-                                            field_type = Some(FieldType::HierarchicalFacet);
                                         }
                                         _ => {
                                             let msg = format!("Unrecognised type {}", ty);

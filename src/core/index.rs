@@ -96,7 +96,7 @@ impl Index {
             searcher_pool: Arc::new(Pool::new()),
             analyzers: AnalyzerManager::default(),
         };
-        try!(index.load_searchers());
+        index.load_searchers()?;
         Ok(index)
     }
 
@@ -110,7 +110,7 @@ impl Index {
     pub fn open(directory_path: &Path) -> Result<Index> {
         let mmap_directory = MmapDirectory::open(directory_path)?;
         let directory = ManagedDirectory::new(mmap_directory)?;
-        let metas = try!(load_metas(&directory));
+        let metas = load_metas(&directory)?;
         Index::create_from_metas(directory, metas)
     }
 
@@ -218,12 +218,11 @@ impl Index {
     /// published or after a merge.
     pub fn load_searchers(&self) -> Result<()> {
         let searchable_segments = self.searchable_segments()?;
-        let segment_readers: Vec<SegmentReader> = try!(
+        let segment_readers: Vec<SegmentReader> =
             searchable_segments
                 .into_iter()
                 .map(SegmentReader::open)
-                .collect()
-        );
+                .collect::<Result<_>>()?;
         let searchers = (0..NUM_SEARCHERS)
             .map(|_| Searcher::from(segment_readers.clone()))
             .collect();

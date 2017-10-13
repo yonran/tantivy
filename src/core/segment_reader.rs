@@ -17,7 +17,7 @@ use common::CompositeFile;
 use std::fmt;
 use core::InvertedIndexReader;
 use schema::Field;
-use fastfield::{FastFieldReader, U64FastFieldReader};
+use fastfield::{MultiValueIntFastFieldReader, FastFieldReader, U64FastFieldReader};
 use schema::Schema;
 
 
@@ -100,6 +100,10 @@ impl SegmentReader {
         }
     }
 
+    pub fn facet_reader(&self, field: Field) -> Result<MultiValueIntFastFieldReader> {
+        MultiValueIntFastFieldReader::open(self, field)
+    }
+
     /// Accessor to the segment's `Field norms`'s reader.
     ///
     /// Field norms are the length (in tokens) of the fields.
@@ -109,9 +113,9 @@ impl SegmentReader {
     /// They are simply stored as a fast field, serialized in
     /// the `.fieldnorm` file of the segment.
     pub fn get_fieldnorms_reader(&self, field: Field) -> Option<U64FastFieldReader> {
-        self.fieldnorms_composite.open_read(field).map(
-            U64FastFieldReader::open,
-        )
+        self.fieldnorms_composite
+            .open_read(field)
+            .map(U64FastFieldReader::open)
     }
 
     /// Accessor to the segment's `StoreReader`.

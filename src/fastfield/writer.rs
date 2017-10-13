@@ -85,7 +85,6 @@ impl FastFieldsWriter {
             })
     }
 
-
     /// Indexes all of the fastfields of a new document.
     pub fn add_document(&mut self, doc: &Document) {
         for field_writer in &mut self.single_value_writers {

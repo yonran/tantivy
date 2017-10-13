@@ -37,6 +37,7 @@ pub use self::reader::{U64FastFieldReader, I64FastFieldReader};
 pub use self::reader::FastFieldReader;
 pub use self::serializer::FastFieldSerializer;
 pub use self::error::{Result, FastFieldNotAvailableError};
+pub use self::multivalued::MultiValueIntFastFieldReader;
 
 #[cfg(test)]
 mod tests {

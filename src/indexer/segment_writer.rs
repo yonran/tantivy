@@ -167,10 +167,12 @@ impl<'a> SegmentWriter<'a> {
                                 let unordered_term_id = self.multifield_postings.suscribe(doc_id, &term);
                                 unordered_term_id_opt = Some(unordered_term_id);
                             });
-                        if let Some(multivals_writer) = self.fast_field_writers.get_multivalue_writer(field) {
-                            if let Some(unordered_term_id) = unordered_term_id_opt {
-                                multivals_writer.add_val(unordered_term_id as u64);
-                            }
+
+                        if let Some(unordered_term_id) = unordered_term_id_opt {
+                            self.fast_field_writers
+                                .get_multivalue_writer(field)
+                                .expect("multified writer for facet missing")
+                                .add_val(unordered_term_id as u64);
                         }
                     }
                 }
