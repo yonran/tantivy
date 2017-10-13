@@ -1,11 +1,12 @@
-use itertools::Itertools;
 use fastfield::FastFieldSerializer;
+use std::collections::HashMap;
+use postings::UnorderedTermId;
 use schema::Field;
 use std::io;
 
 pub struct MultiValueIntFastFieldWriter {
     field: Field,
-    vals: Vec<u64>,
+    vals: Vec<UnorderedTermId>,
     doc_index: Vec<u64>,
 }
 
@@ -32,16 +33,16 @@ impl MultiValueIntFastFieldWriter {
     /// The n-th value being recorded is implicitely
     /// associated to the document with the `DocId` n.
     /// (Well, `n-1` actually because of 0-indexing)
-    pub fn add_val(&mut self, val: u64) {
+    pub fn add_val(&mut self, val: UnorderedTermId) {
         self.vals.push(val);
     }
 
     /// Push the fast fields value to the `FastFieldWriter`.
-    pub fn serialize(&self, serializer: &mut FastFieldSerializer) -> io::Result<()> {
+    pub fn serialize(&self, serializer: &mut FastFieldSerializer, mapping_opt: Option<&HashMap<UnorderedTermId, usize>>) -> io::Result<()> {
+        let mapping = mapping_opt.expect("Term ord mapping missing");
         {
             // writing the offset index
-            let max = self.doc_index.iter().cloned().max().unwrap_or(0);
-            let mut doc_index_serializer = serializer.new_u64_fast_field_with_idx(self.field, 0, max, 0)?;
+            let mut doc_index_serializer = serializer.new_u64_fast_field_with_idx(self.field, 0, self.vals.len() as u64, 0)?;
             for &offset in &self.doc_index {
                 doc_index_serializer.add_val(offset)?;
             }
@@ -50,11 +51,11 @@ impl MultiValueIntFastFieldWriter {
         }
         {
             // writing the values themselves.
-            let (min, max) = self.vals.iter().cloned().minmax().into_option().unwrap_or((0, 0));
-            let mut value_serializer = serializer.new_u64_fast_field_with_idx(self.field, min, max, 1)?;
-            for &val in &self.vals {
-                value_serializer.add_val(val)?;
+            let mut value_serializer = serializer.new_u64_fast_field_with_idx(self.field, 0u64, mapping.len() as u64, 1)?;
+            for val in &self.vals {
+                value_serializer.add_val(*mapping.get(val).expect("Missing term ordinal") as u64)?;
             }
+            value_serializer.close_field()?;
         }
         Ok(())
 

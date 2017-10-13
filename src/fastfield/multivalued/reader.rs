@@ -1,7 +1,4 @@
-use core::SegmentReader;
-use error::Result;
 use DocId;
-use schema::Field;
 use fastfield::FastFieldReader;
 
 use fastfield::U64FastFieldReader;
@@ -14,14 +11,12 @@ pub struct MultiValueIntFastFieldReader {
 
 impl MultiValueIntFastFieldReader {
 
-    pub fn open(segment_reader: &SegmentReader, field: Field) -> Result<MultiValueIntFastFieldReader> {
-        let idx_reader = segment_reader.get_fast_field_reader(field)?;
-        let vals_reader = segment_reader.get_fast_field_reader(field)?;
-        Ok(MultiValueIntFastFieldReader {
+    pub(crate) fn open(idx_reader: U64FastFieldReader, vals_reader: U64FastFieldReader) -> MultiValueIntFastFieldReader {
+        MultiValueIntFastFieldReader {
             vals: vec!(),
             idx_reader: idx_reader,
             vals_reader: vals_reader,
-        })
+        }
     }
 
     pub fn term_ords(&mut self, doc: DocId) -> &[u64] {
@@ -73,8 +68,8 @@ mod tests {
         let mut facet_reader = segment_reader
             .facet_reader(facet_field)
             .unwrap();
-        
-        assert_eq!(facet_reader.term_ords(0), &[0,1]);
+
+        assert_eq!(facet_reader.term_ords(0), &[1, 0]);
         assert_eq!(facet_reader.term_ords(1), &[1]);
         assert_eq!(facet_reader.term_ords(2), &[2]);
     }

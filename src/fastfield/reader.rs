@@ -10,6 +10,7 @@ use fastfield::{FastFieldSerializer, FastFieldsWriter};
 use schema::FieldType;
 use std::mem;
 use common::CompositeFile;
+use std::collections::HashMap;
 use owning_ref::OwningRef;
 
 /// Trait for accessing a fastfield.
@@ -149,7 +150,7 @@ impl From<Vec<u64>> for U64FastFieldReader {
                     fast_field_writer.add_val(val);
                 }
             }
-            fast_field_writers.serialize(&mut serializer).unwrap();
+            fast_field_writers.serialize(&mut serializer, HashMap::new()).unwrap();
             serializer.close().unwrap();
         }
 

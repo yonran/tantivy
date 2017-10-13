@@ -9,6 +9,7 @@ use fastfield::FastFieldsWriter;
 use analyzer::{Analyzer, TokenStream, FacetTokenizer};
 use schema::Field;
 use schema::FieldType;
+use std::collections::HashMap;
 use indexer::segment_serializer::SegmentSerializer;
 use datastruct::stacker::Heap;
 use indexer::index_writer::MARGIN_IN_BYTES;
@@ -172,7 +173,7 @@ impl<'a> SegmentWriter<'a> {
                             self.fast_field_writers
                                 .get_multivalue_writer(field)
                                 .expect("multified writer for facet missing")
-                                .add_val(unordered_term_id as u64);
+                                .add_val(unordered_term_id);
                         }
                     }
                 }
@@ -263,14 +264,16 @@ fn write(
     mut serializer: SegmentSerializer,
 ) -> Result<()> {
 
-    multifield_postings.serialize(
-        serializer.get_postings_serializer(),
+    let term_ord_map = multifield_postings.serialize(
+        serializer.get_postings_serializer()
     )?;
     fast_field_writers.serialize(
         serializer.get_fast_field_serializer(),
+        term_ord_map
     )?;
     fieldnorms_writer.serialize(
         serializer.get_fieldnorms_serializer(),
+        HashMap::new()
     )?;
     serializer.close()?;
 

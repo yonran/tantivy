@@ -113,7 +113,7 @@ impl KeyValue {
 /// the computation of the hash of the key twice,
 /// or copying the key as long as there is no insert.
 ///
-pub struct HashMap<'a> {
+pub struct TermHashMap<'a> {
     table: Box<[KeyValue]>,
     heap: &'a Heap,
     mask: usize,
@@ -144,11 +144,11 @@ impl QuadraticProbing {
 }
 
 
-impl<'a> HashMap<'a> {
-    pub fn new(num_bucket_power_of_2: usize, heap: &'a Heap) -> HashMap<'a> {
+impl<'a> TermHashMap<'a> {
+    pub fn new(num_bucket_power_of_2: usize, heap: &'a Heap) -> TermHashMap<'a> {
         let table_size = 1 << num_bucket_power_of_2;
         let table: Vec<KeyValue> = iter::repeat(KeyValue::default()).take(table_size).collect();
-        HashMap {
+        TermHashMap {
             table: table.into_boxed_slice(),
             heap: heap,
             mask: table_size - 1,
@@ -179,11 +179,15 @@ impl<'a> HashMap<'a> {
         };
     }
 
-    pub fn iter<'b: 'a>(&'b self) -> impl Iterator<Item = (&'a [u8], u32)> + 'b {
-        self.occupied.iter().cloned().map(move |bucket: usize| {
-            let kv = self.table[bucket];
-            self.get_key_value(kv.key_value_addr)
-        })
+    pub fn iter<'b: 'a>(&'b self) -> impl Iterator<Item = (&'a [u8], u32, UnorderedTermId)> + 'b {
+        self.occupied
+            .iter()
+            .cloned()
+            .map(move |bucket: usize| {
+                let kv = self.table[bucket];
+                let (key, offset) = self.get_key_value(kv.key_value_addr);
+                (key, offset, bucket as UnorderedTermId)
+            })
     }
 
 
@@ -247,7 +251,7 @@ mod tests {
     #[test]
     fn test_hash_map() {
         let heap = Heap::with_capacity(2_000_000);
-        let mut hash_map: HashMap = HashMap::new(18, &heap);
+        let mut hash_map: TermHashMap = TermHashMap::new(18, &heap);
         {
             let v: &mut TestValue = hash_map.get_or_create("abc").1;
             assert_eq!(v.val, 0u32);
@@ -268,12 +272,12 @@ mod tests {
         }
         let mut iter_values = hash_map.iter();
         {
-            let (_, addr) = iter_values.next().unwrap();
+            let (_, addr, _) = iter_values.next().unwrap();
             let val: &TestValue = heap.get_ref(addr);
             assert_eq!(val.val, 3u32);
         }
         {
-            let (_, addr) = iter_values.next().unwrap();
+            let (_, addr, _) = iter_values.next().unwrap();
             let val: &TestValue = heap.get_ref(addr);
             assert_eq!(val.val, 4u32);
         }

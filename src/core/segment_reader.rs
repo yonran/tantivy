@@ -101,7 +101,16 @@ impl SegmentReader {
     }
 
     pub fn facet_reader(&self, field: Field) -> Result<MultiValueIntFastFieldReader> {
-        MultiValueIntFastFieldReader::open(self, field)
+        let field_entry = self.schema.get_field_entry(field);
+        let idx_reader = self.fast_fields_composite
+            .open_read_with_idx(field, 0)
+            .ok_or_else(|| FastFieldNotAvailableError::new(field_entry))
+            .map(U64FastFieldReader::open)?;
+        let vals_reader = self.fast_fields_composite
+            .open_read_with_idx(field, 1)
+            .ok_or_else(|| FastFieldNotAvailableError::new(field_entry))
+            .map(U64FastFieldReader::open)?;
+        Ok(MultiValueIntFastFieldReader::open(idx_reader, vals_reader))
     }
 
     /// Accessor to the segment's `Field norms`'s reader.

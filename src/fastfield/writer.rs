@@ -6,6 +6,8 @@ use DocId;
 use schema::FieldType;
 use common;
 use common::VInt;
+use std::collections::HashMap;
+use postings::UnorderedTermId;
 use super::multivalued::MultiValueIntFastFieldWriter;
 use common::BinarySerializable;
 
@@ -97,12 +99,14 @@ impl FastFieldsWriter {
 
     /// Serializes all of the `FastFieldWriter`s by pushing them in
     /// order to the fast field serializer.
-    pub fn serialize(&self, serializer: &mut FastFieldSerializer) -> io::Result<()> {
+    pub fn serialize(&self,
+                     serializer: &mut FastFieldSerializer,
+                     mapping: HashMap<Field, HashMap<UnorderedTermId, usize>>) -> io::Result<()> {
         for field_writer in &self.single_value_writers {
             field_writer.serialize(serializer)?;
         }
         for field_writer in &self.multi_values_writers {
-            field_writer.serialize(serializer)?;
+            field_writer.serialize(serializer, mapping.get(&field_writer.field()))?;
         }
         Ok(())
     }
