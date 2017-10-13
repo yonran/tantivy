@@ -1,6 +1,6 @@
 use std::iter;
 use std::mem;
-use postings::IntermediateTermId;
+use postings::UnorderedTermId;
 use super::heap::{Heap, HeapAllocable, BytesRef};
 
 mod murmurhash2 {
@@ -187,7 +187,7 @@ impl<'a> HashMap<'a> {
     }
 
 
-    pub fn get_or_create<S: AsRef<[u8]>, V: HeapAllocable>(&mut self, key: S) -> (IntermediateTermId, &mut V) {
+    pub fn get_or_create<S: AsRef<[u8]>, V: HeapAllocable>(&mut self, key: S) -> (UnorderedTermId, &mut V) {
         let key_bytes: &[u8] = key.as_ref();
         let hash = murmurhash2::murmurhash2(key.as_ref());
         let mut probe = self.probe(hash);

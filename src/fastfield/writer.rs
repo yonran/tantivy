@@ -44,6 +44,10 @@ impl FastFieldsWriter {
                         None => {}
                     }
                 }
+                FieldType::HierarchicalFacet => {
+                    let fast_field_writer = MultiValueIntFastFieldWriter::new(field);
+                    multi_values_writers.push(fast_field_writer);
+                }
                 _ => {},
             }
         }
@@ -65,9 +69,20 @@ impl FastFieldsWriter {
     /// Get the `FastFieldWriter` associated to a field.
     pub fn get_field_writer(&mut self, field: Field) -> Option<&mut IntFastFieldWriter> {
         // TODO optimize
-        self.single_value_writers.iter_mut().find(|field_writer| {
-            field_writer.field == field
-        })
+        self.single_value_writers
+            .iter_mut()
+            .find(|field_writer| {
+                field_writer.field() == field
+            })
+    }
+
+    pub fn get_multivalue_writer(&mut self, field: Field) -> Option<&mut MultiValueIntFastFieldWriter> {
+        // TODO optimize
+        self.multi_values_writers
+            .iter_mut()
+            .find(|multivalue_writer| {
+                multivalue_writer.field() == field
+            })
     }
 
 
@@ -76,12 +91,18 @@ impl FastFieldsWriter {
         for field_writer in &mut self.single_value_writers {
             field_writer.add_document(doc);
         }
+        for field_writer in &mut self.multi_values_writers {
+            field_writer.next_doc();
+        }
     }
 
     /// Serializes all of the `FastFieldWriter`s by pushing them in
     /// order to the fast field serializer.
     pub fn serialize(&self, serializer: &mut FastFieldSerializer) -> io::Result<()> {
         for field_writer in &self.single_value_writers {
+            field_writer.serialize(serializer)?;
+        }
+        for field_writer in &self.multi_values_writers {
             field_writer.serialize(serializer)?;
         }
         Ok(())
@@ -133,6 +154,10 @@ impl IntFastFieldWriter {
             val_min: u64::max_value(),
             val_max: 0,
         }
+    }
+
+    pub fn field(&self) -> Field {
+        self.field
     }
 
     /// Sets the default value.

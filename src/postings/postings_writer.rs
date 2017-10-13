@@ -14,7 +14,7 @@ use schema::FieldEntry;
 use schema::FieldType;
 use analyzer::TokenStream;
 use schema::IndexRecordOption;
-use postings::IntermediateTermId;
+use postings::UnorderedTermId;
 
 
 fn posting_from_field_entry<'a>(
@@ -78,7 +78,7 @@ impl<'a> MultiFieldPostingsWriter<'a> {
         postings_writer.index_text(&mut self.term_index, doc, field, token_stream, self.heap)
     }
 
-    pub fn suscribe(&mut self, doc: DocId, term: &Term) -> IntermediateTermId  {
+    pub fn suscribe(&mut self, doc: DocId, term: &Term) -> UnorderedTermId {
         let postings_writer = self.per_field_postings_writers[term.field().0 as usize].deref_mut();
         postings_writer.suscribe(&mut self.term_index, doc, 0u32, term, self.heap)
     }
@@ -147,7 +147,7 @@ pub trait PostingsWriter {
         pos: u32,
         term: &Term,
         heap: &Heap,
-    ) -> IntermediateTermId;
+    ) -> UnorderedTermId;
 
     /// Serializes the postings on disk.
     /// The actual serialization format is handled by the `PostingsSerializer`.
@@ -206,7 +206,7 @@ impl<'a, Rec: Recorder + 'static> PostingsWriter for SpecializedPostingsWriter<'
         position: u32,
         term: &Term,
         heap: &Heap,
-    ) -> IntermediateTermId {
+    ) -> UnorderedTermId {
         debug_assert!(term.as_slice().len() >= 4);
         let (term_ord, recorder): (usize, &mut Rec) = term_index.get_or_create(term);
         let current_doc = recorder.current_doc();

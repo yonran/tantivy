@@ -138,6 +138,9 @@ impl<'a> SegmentWriter<'a> {
         let doc_id = self.max_doc;
         let mut doc = add_operation.document;
         self.doc_opstamps.push(add_operation.opstamp);
+
+        self.fast_field_writers.add_document(&doc);
+
         for (field, field_values) in doc.get_sorted_field_values() {
             let field_options = schema.get_field_entry(field);
             if !field_options.is_indexed() {
@@ -156,14 +159,20 @@ impl<'a> SegmentWriter<'a> {
                     let mut term = unsafe {Term::with_capacity(100)};
                     term.set_field(field);
                     for facet in facets {
-                        FacetTokenizer.token_stream(&facet)
+                        let mut unordered_term_id_opt = None;
+                        FacetTokenizer
+                            .token_stream(&facet)
                             .process(&mut |ref token| {
                                 term.set_text(&token.term);
-                                self.multifield_postings.suscribe(doc_id, &term);
-
+                                let unordered_term_id = self.multifield_postings.suscribe(doc_id, &term);
+                                unordered_term_id_opt = Some(unordered_term_id);
                             });
+                        if let Some(multivals_writer) = self.fast_field_writers.get_multivalue_writer(field) {
+                            if let Some(unordered_term_id) = unordered_term_id_opt {
+                                multivals_writer.add_val(unordered_term_id as u64);
+                            }
+                        }
                     }
-
                 }
                 FieldType::Str(_) => {
                     let num_tokens =
@@ -213,7 +222,6 @@ impl<'a> SegmentWriter<'a> {
 
 
         self.fieldnorms_writer.fill_val_up_to(doc_id);
-        self.fast_field_writers.add_document(&doc);
         doc.filter_fields(|field| {
             schema.get_field_entry(field).is_stored()
         });

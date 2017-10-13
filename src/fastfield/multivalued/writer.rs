@@ -1,14 +1,12 @@
 use itertools::Itertools;
 use fastfield::FastFieldSerializer;
-use common;
-use schema::{Field, Document, Value};
-use DocId;
+use schema::Field;
 use std::io;
 
 pub struct MultiValueIntFastFieldWriter {
     field: Field,
     vals: Vec<u64>,
-    doc_index: Vec<usize>,
+    doc_index: Vec<u64>,
 }
 
 impl MultiValueIntFastFieldWriter {
@@ -21,16 +19,12 @@ impl MultiValueIntFastFieldWriter {
         }
     }
 
-    /// Ensures all of the fast field writer have
-    /// reached `doc`. (included)
-    ///
-    /// The missing values will be filled with 0.
-    fn fill_val_up_to(&mut self, doc: DocId) {
-        self.doc_index.resize(doc as usize, self.vals.len());
+    pub fn field(&self) -> Field {
+        self.field
     }
 
-    fn next_doc(&mut self) {
-        self.doc_index.push(self.vals.len());
+    pub fn next_doc(&mut self) {
+        self.doc_index.push(self.vals.len() as u64);
     }
 
     /// Records a new value.
@@ -42,27 +36,27 @@ impl MultiValueIntFastFieldWriter {
         self.vals.push(val);
     }
 
-
-    /// Extract the fast field value from the document
-    /// (or use the default value) and records it.
-    pub fn add_document(&mut self, doc: &Document) {
-        for val in doc.get_all(self.field) {
-            match *val {
-                Value::U64(ref val) => self.vals.push(*val),
-                Value::I64(ref val) => self.vals.push(common::i64_to_u64(*val)),
-                _ => {},
-            }
-        }
-        self.next_doc();
-    }
-
     /// Push the fast fields value to the `FastFieldWriter`.
     pub fn serialize(&self, serializer: &mut FastFieldSerializer) -> io::Result<()> {
-        let (min, max) = self.vals.iter().cloned().minmax().into_option().unwrap_or((0, 0));
-        let mut single_field_serializer = serializer.new_u64_fast_field(self.field, min, max)?;
-        for &val in &self.vals {
-            single_field_serializer.add_val(val)?;
+        {
+            // writing the offset index
+            let max = self.doc_index.iter().cloned().max().unwrap_or(0);
+            let mut doc_index_serializer = serializer.new_u64_fast_field_with_idx(self.field, 0, max, 0)?;
+            for &offset in &self.doc_index {
+                doc_index_serializer.add_val(offset)?;
+            }
+            doc_index_serializer.add_val(self.vals.len() as u64)?;
+            doc_index_serializer.close_field()?;
         }
-        single_field_serializer.close_field()
+        {
+            // writing the values themselves.
+            let (min, max) = self.vals.iter().cloned().minmax().into_option().unwrap_or((0, 0));
+            let mut value_serializer = serializer.new_u64_fast_field_with_idx(self.field, min, max, 1)?;
+            for &val in &self.vals {
+                value_serializer.add_val(val)?;
+            }
+        }
+        Ok(())
+
     }
 }
