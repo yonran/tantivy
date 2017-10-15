@@ -87,7 +87,7 @@ impl Segment {
         component: SegmentComponent,
     ) -> result::Result<ReadOnlySource, OpenReadError> {
         let path = self.relative_path(component);
-        let source = try!(self.index.directory().open_read(&path));
+        let source = self.index.directory().open_read(&path)?;
         Ok(source)
     }
 
@@ -97,7 +97,7 @@ impl Segment {
         component: SegmentComponent,
     ) -> result::Result<WritePtr, OpenWriteError> {
         let path = self.relative_path(component);
-        let write = try!(self.index.directory_mut().open_write(&path));
+        let write = self.index.directory_mut().open_write(&path)?;
         Ok(write)
     }
 }

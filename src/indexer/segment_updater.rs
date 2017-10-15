@@ -72,8 +72,8 @@ pub fn save_metas(
         schema: schema,
         opstamp: opstamp,
     };
-    let mut w = try!(serde_json::to_vec_pretty(&metas));
-    try!(write!(&mut w, "\n"));
+    let mut w = serde_json::to_vec_pretty(&metas)?;
+    write!(&mut w, "\n")?;
     directory.atomic_write(&META_FILEPATH, &w[..])?;
     debug!("Saved metas {:?}", serde_json::to_string_pretty(&metas));
     Ok(())

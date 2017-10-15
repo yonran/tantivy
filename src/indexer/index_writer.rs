@@ -451,7 +451,7 @@ impl IndexWriter {
 
     fn start_workers(&mut self) -> Result<()> {
         for _ in 0..self.num_threads {
-            try!(self.add_indexing_worker());
+            self.add_indexing_worker()?;
         }
         Ok(())
     }

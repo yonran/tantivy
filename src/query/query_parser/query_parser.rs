@@ -228,7 +228,7 @@ impl QueryParser {
             UserInputAST::Clause(sub_queries) => {
                 let default_occur = self.default_occur();
                 let logical_sub_queries: Vec<(Occur, LogicalAST)> =
-                    try!(sub_queries
+                    sub_queries
                         .into_iter()
                         .map(|sub_query| self.compute_logical_ast_with_occur(*sub_query))
                         .map(|res| {
@@ -236,7 +236,7 @@ impl QueryParser {
                                 (compose_occur(default_occur, occur), sub_ast)
                             })
                         })
-                        .collect());
+                        .collect::<Result<_, QueryParserError>>()?;
                 Ok((Occur::Should, LogicalAST::Clause(logical_sub_queries)))
             }
             UserInputAST::Not(subquery) => {

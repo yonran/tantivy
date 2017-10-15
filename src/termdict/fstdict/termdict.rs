@@ -118,6 +118,9 @@ impl<'a> TermDictionary<'a> for TermDictionaryImpl {
         }
     }
 
+    fn num_terms(&self) -> usize {
+        self.values_mmap.len() / TermInfo::SIZE_IN_BYTES
+    }
 
     // Regardless of whether the term is found or not,
     // the buffer may be modified.
@@ -157,9 +160,7 @@ impl<'a> TermDictionary<'a> for TermDictionaryImpl {
 
     fn get<K: AsRef<[u8]>>(&self, key: K) -> Option<TermInfo> {
         self.term_ord(key)
-            .map(|term_ord| {
-            self.term_info_from_ord(term_ord)
-        })
+            .map(|term_ord| self.term_info_from_ord(term_ord))
     }
 
     fn range(&self) -> TermStreamerBuilderImpl {

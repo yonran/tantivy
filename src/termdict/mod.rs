@@ -95,6 +95,8 @@ where
 
     fn term_info_from_ord(&self, term_ord: TermOrdinal) -> TermInfo;
 
+    fn num_terms(&self) -> usize;
+
     /// Lookups the value corresponding to the key.
     fn get<K: AsRef<[u8]>>(&self, target_key: K) -> Option<TermInfo>;
 

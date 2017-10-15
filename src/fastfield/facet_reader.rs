@@ -21,6 +21,10 @@ impl FacetReader {
         }
     }
 
+    pub fn num_terms(&self) -> usize {
+        self.term_dict.num_terms()
+    }
+
     pub fn facet_from_ord(&mut self, term_ord: usize) -> &Facet {
         let term = self.term_dict.ord_to_term(term_ord as u64, self.facet.inner_buffer_mut());
         &self.facet

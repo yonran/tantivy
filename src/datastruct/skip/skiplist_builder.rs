@@ -74,14 +74,14 @@ impl<T: BinarySerializable> SkipListBuilder<T> {
 
     pub fn insert(&mut self, doc_id: DocId, dest: &T) -> io::Result<()> {
         let mut layer_id = 0;
-        let mut skip_pointer = try!(self.data_layer.insert(doc_id, dest));
+        let mut skip_pointer = self.data_layer.insert(doc_id, dest)?;
         loop {
             skip_pointer = match skip_pointer {
                 Some((skip_doc_id, skip_offset)) => {
-                    try!(self.get_skip_layer(layer_id).insert(
+                    self.get_skip_layer(layer_id).insert(
                         skip_doc_id,
                         &skip_offset,
-                    ))
+                    )?
                 }
                 None => {
                     return Ok(());

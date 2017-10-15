@@ -37,12 +37,10 @@ impl Query for BooleanQuery {
     }
 
     fn weight(&self, searcher: &Searcher) -> Result<Box<Weight>> {
-        let sub_weights = try!(
-            self.subqueries
-                .iter()
-                .map(|&(ref _occur, ref subquery)| subquery.weight(searcher))
-                .collect()
-        );
+        let sub_weights = self.subqueries
+            .iter()
+            .map(|&(ref _occur, ref subquery)| subquery.weight(searcher))
+            .collect::<Result<Vec<_>>>()?;
         let occurs: Vec<Occur> = self.subqueries
             .iter()
             .map(|&(ref occur, ref _subquery)| *occur)

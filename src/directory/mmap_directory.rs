@@ -226,8 +226,8 @@ impl MmapDirectory {
             );
         }
 
-        let fd = try!(open_opts.open(&self.root_path));
-        try!(fd.sync_all());
+        let fd = open_opts.open(&self.root_path)?;
+        fd.sync_all()?;
         Ok(())
     }
     /// Returns some statistical information
@@ -259,7 +259,7 @@ impl Write for SafeFileWriter {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        try!(self.0.flush());
+        self.0.flush()?;
         self.0.sync_all()
     }
 }
@@ -386,7 +386,7 @@ impl Directory for MmapDirectory {
         debug!("Atomic Write {:?}", path);
         let full_path = self.resolve_path(path);
         let meta_file = atomicwrites::AtomicFile::new(full_path, atomicwrites::AllowOverwrite);
-        try!(meta_file.write(|f| f.write_all(data)));
+        meta_file.write(|f| f.write_all(data))?;
         Ok(())
     }
 

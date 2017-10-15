@@ -22,16 +22,14 @@ pub struct SegmentRegister {
 
 impl Debug for SegmentRegister {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        try!(write!(f, "SegmentRegister("));
+        write!(f, "SegmentRegister(")?;
         for (k, v) in &self.segment_states {
-            try!(write!(
-                f,
+            write!(f,
                 "{}:{}, ",
                 k.short_uuid_string(),
-                v.state().letter_code()
-            ));
+                v.state().letter_code())?;
         }
-        try!(write!(f, ")"));
+        write!(f, ")")?;
         Ok(())
     }
 }
