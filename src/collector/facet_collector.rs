@@ -55,7 +55,8 @@ where
         let val = self.ff_reader
             .as_ref()
             .expect(
-                "collect() was called before set_segment. This should never happen.",
+                "collect() was called before set_segment. \
+                This should never happen.",
             )
             .get(doc);
         *(self.counters.entry(val).or_insert(0)) += 1;

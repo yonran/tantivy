@@ -51,7 +51,7 @@ impl InvertedIndexReader {
 
     /// Returns the term info associated with the term.
     pub fn get_term_info(&self, term: &Term) -> Option<TermInfo> {
-        self.termdict.get(term.as_slice())
+        self.termdict.get(term.value_bytes())
     }
 
 

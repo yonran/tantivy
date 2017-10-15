@@ -159,7 +159,6 @@ pub trait TermStreamer: Sized {
     /// Before any call to `.next()`, `.key()` returns an empty array.
     fn key(&self) -> &[u8];
 
-
     fn term_ord(&self) -> TermOrdinal;
 
     /// Accesses the current value.
@@ -174,9 +173,9 @@ pub trait TermStreamer: Sized {
     fn value(&self) -> &TermInfo;
 
     /// Return the next `(key, value)` pair.
-    fn next(&mut self) -> Option<(Term<&[u8]>, &TermInfo)> {
+    fn next(&mut self) -> Option<(&[u8], &TermInfo)> {
         if self.advance() {
-            Some((Term::wrap(self.key()), self.value()))
+            Some((self.key(), self.value()))
         } else {
             None
         }
@@ -304,7 +303,7 @@ mod tests {
         {
             {
                 let (k, v) = stream.next().unwrap();
-                assert_eq!(k.as_slice(), "abcd".as_bytes());
+                assert_eq!(k, "abcd".as_bytes());
                 assert_eq!(v.doc_freq, 346u32);
             }
             assert_eq!(stream.key(), "abcd".as_bytes());
@@ -352,8 +351,8 @@ mod tests {
         let mut term_it = field_searcher.terms();
         let mut term_string = String::new();
         while term_it.advance() {
-            let term = Term::from_bytes(term_it.key());
-            term_string.push_str(term.text());
+            //let term = Term::from_bytes(term_it.key());
+            term_string.push_str(unsafe { str::from_utf8_unchecked(term_it.key()) });
         }
         assert_eq!(&*term_string, "abcdef");
     }

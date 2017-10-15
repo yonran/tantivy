@@ -35,7 +35,7 @@ impl<'a> TokenStream for FacetTokenStream<'a> {
                 .position(|b| b == 31u8)
                 .map(|pos| pos + self.pos + 1)
                 .unwrap_or(bytes.len());
-            let facet_prefix = unsafe { str::from_utf8_unchecked(&bytes[self.pos..next_sep_pos]) };
+            let facet_prefix = unsafe { ::std::str::from_utf8_unchecked(&bytes[self.pos..next_sep_pos]) };
             self.pos = next_sep_pos;
             self.token.term.push_str(facet_prefix);
             return true;
@@ -64,15 +64,16 @@ mod tests {
         let mut tokens = vec![];
         {
             let mut add_token = |token: &Token| {
-                let facet = Facet::from_encoded(token.term.clone());
+                let facet = Facet::from_encoded(token.term.as_bytes().to_owned());
                 tokens.push(format!("{}", facet));
             };
-            FacetTokenizer.token_stream(facet.encoded_str()).process(&mut add_token);
+            FacetTokenizer
+                .token_stream(unsafe { ::std::str::from_utf8_unchecked(facet.encoded_bytes()) })
+                .process(&mut add_token);
         }
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0], "/top");
         assert_eq!(tokens[1], "/top/a");
         assert_eq!(tokens[2], "/top/a/b");
-
     }
 }

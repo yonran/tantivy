@@ -118,6 +118,9 @@ impl<'a> TermDictionary<'a> for TermDictionaryImpl {
         }
     }
 
+
+    // Regardless of whether the term is found or not,
+    // the buffer may be modified.
     fn ord_to_term(&self, mut ord: TermOrdinal, bytes: &mut Vec<u8>) -> bool {
         bytes.clear();
         let fst = self.fst_index.as_fst();

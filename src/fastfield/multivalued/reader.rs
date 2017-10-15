@@ -19,7 +19,7 @@ impl MultiValueIntFastFieldReader {
         }
     }
 
-    pub fn term_ords(&mut self, doc: DocId) -> &[u64] {
+    pub fn get_vals(&mut self, doc: DocId) -> &[u64] {
         let start = self.idx_reader.get(doc) as u32;
         let stop = self.idx_reader.get(doc + 1) as u32;
         self.vals.clear();
@@ -69,8 +69,14 @@ mod tests {
             .facet_reader(facet_field)
             .unwrap();
 
-        assert_eq!(facet_reader.term_ords(0), &[1, 0]);
-        assert_eq!(facet_reader.term_ords(1), &[1]);
-        assert_eq!(facet_reader.term_ords(2), &[2]);
-    }
+        assert_eq!(facet_reader.facet_from_ord(0).to_string(), "/category");
+        assert_eq!(facet_reader.facet_from_ord(1).to_string(), "/category/cat1");
+        assert_eq!(facet_reader.facet_from_ord(2).to_string(), "/category/cat2");
+        assert_eq!(facet_reader.facet_from_ord(3).to_string(), "/category/cat3");
+
+        assert_eq!(facet_reader.term_ords(0), &[2, 1]);
+        assert_eq!(facet_reader.term_ords(1), &[2]);
+        assert_eq!(facet_reader.term_ords(2), &[3   ]);
+
+        }
 }

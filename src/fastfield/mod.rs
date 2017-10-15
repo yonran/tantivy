@@ -29,7 +29,7 @@ mod serializer;
 mod error;
 mod delete;
 mod multivalued;
-
+mod facet_reader;
 
 pub use self::delete::write_delete_bitset;
 pub use self::delete::DeleteBitSet;
@@ -39,6 +39,7 @@ pub use self::reader::FastFieldReader;
 pub use self::serializer::FastFieldSerializer;
 pub use self::error::{Result, FastFieldNotAvailableError};
 pub use self::multivalued::MultiValueIntFastFieldReader;
+pub use self::facet_reader::FacetReader;
 
 #[cfg(test)]
 mod tests {

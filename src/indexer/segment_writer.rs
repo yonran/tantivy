@@ -17,6 +17,7 @@ use super::operation::AddOperation;
 use postings::MultiFieldPostingsWriter;
 use analyzer::BoxedAnalyzer;
 use schema::Value;
+use std::str;
 
 
 /// A `SegmentWriter` is in charge of creating segment index from a
@@ -149,20 +150,21 @@ impl<'a> SegmentWriter<'a> {
             }
             match *field_options.field_type() {
                 FieldType::HierarchicalFacet => {
-                    let facets: Vec<&str> = field_values.iter()
+                    let facets: Vec<&[u8]> = field_values.iter()
                         .flat_map(|field_value| {
                             match field_value.value() {
-                                &Value::HierarchicalFacet(ref facet) => Some(facet.encoded_str()),
+                                &Value::HierarchicalFacet(ref facet) => Some(facet.encoded_bytes()),
                                 _ => None
                             }
                         })
                         .collect();
                     let mut term = unsafe {Term::with_capacity(100)};
                     term.set_field(field);
-                    for facet in facets {
+                    for facet_bytes in facets {
                         let mut unordered_term_id_opt = None;
+                        let fake_str = unsafe { str::from_utf8_unchecked(facet_bytes) };
                         FacetTokenizer
-                            .token_stream(&facet)
+                            .token_stream(&fake_str)
                             .process(&mut |ref token| {
                                 term.set_text(&token.term);
                                 let unordered_term_id = self.multifield_postings.suscribe(doc_id, &term);

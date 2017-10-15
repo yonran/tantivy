@@ -17,7 +17,6 @@ use fastfield::FastFieldReader;
 use store::StoreWriter;
 use std::cmp::{min, max};
 use termdict::TermDictionary;
-use schema::Term;
 use termdict::TermStreamer;
 
 pub struct IndexMerger {
@@ -278,7 +277,6 @@ impl IndexMerger {
 
             while merged_terms.advance() {
 
-                let term = Term::wrap(merged_terms.key());
 
                 // Let's compute the list of non-empty posting lists
                 let segment_postings: Vec<_> = merged_terms
@@ -288,7 +286,8 @@ impl IndexMerger {
                         let segment_ord = heap_item.segment_ord;
                         let term_info = heap_item.streamer.value();
                         let segment_reader = &self.readers[heap_item.segment_ord];
-                        let inverted_index = segment_reader.inverted_index(term.field());
+                        // TODO put this call outside of the loop somehow.
+                        let inverted_index = segment_reader.inverted_index(indexed_field);
                         let mut segment_postings = inverted_index.read_postings_from_terminfo(
                             term_info,
                             segment_postings_option,
@@ -304,14 +303,14 @@ impl IndexMerger {
                 // At this point, `segment_postings` contains the posting list
                 // of all of the segments containing the given term.
                 //
-                // These segments are non-empty and advance has already been called.
+                //   These segments are non-empty and advance has already been called.
 
                 if !segment_postings.is_empty() {
                     // If not, the `term` will be entirely removed.
 
                     // We know that there is at least one document containing
                     // the term, so we add it.
-                    field_serializer.new_term(term.as_ref())?;
+                    field_serializer.new_term(merged_terms.key())?;
 
                     // We can now serialize this postings, by pushing each document to the
                     // postings serializer.

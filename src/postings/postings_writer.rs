@@ -92,7 +92,6 @@ impl<'a> MultiFieldPostingsWriter<'a> {
         let mut term_offsets: Vec<(&[u8], u32, UnorderedTermId)> = self.term_index.iter().collect();
         term_offsets.sort_by_key(|&(k, _, _)| k);
 
-
         let mut offsets: Vec<(Field, usize)> = vec![];
         let term_offsets_it = term_offsets
             .iter()
@@ -248,7 +247,7 @@ impl<'a, Rec: Recorder + 'static> PostingsWriter for SpecializedPostingsWriter<'
     ) -> io::Result<()> {
         for &(term_bytes, addr, _) in term_addrs {
             let recorder: &mut Rec = self.heap.get_mut_ref(addr);
-            serializer.new_term(term_bytes)?;
+            serializer.new_term(&term_bytes[4..])?;
             recorder.serialize(addr, serializer, heap)?;
             serializer.close_term()?;
         }

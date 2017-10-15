@@ -20,7 +20,7 @@ pub enum ValueParsingError {
 
 /// A `FieldType` describes the type (text, u64) of a field as well as
 /// how it should be handled by tantivy.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FieldType {
     /// String field type configuration
     Str(TextOptions),

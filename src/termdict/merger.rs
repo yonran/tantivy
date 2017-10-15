@@ -2,7 +2,6 @@ use std::collections::BinaryHeap;
 use termdict::TermStreamerImpl;
 use std::cmp::Ordering;
 use termdict::TermStreamer;
-use schema::Term;
 
 pub struct HeapItem<'a> {
     pub streamer: TermStreamerImpl<'a>,
@@ -118,9 +117,9 @@ impl<'a> TermMerger<'a> {
 
     /// Iterates through terms
     #[allow(should_implement_trait)]
-    pub fn next(&mut self) -> Option<Term<&[u8]>> {
+    pub fn next(&mut self) -> Option<&[u8]> {
         if self.advance() {
-            Some(Term::wrap(self.current_streamers[0].streamer.key()))
+            Some(self.current_streamers[0].streamer.key())
         } else {
             None
         }

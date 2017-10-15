@@ -2,6 +2,8 @@ use Result;
 use core::Segment;
 use core::SegmentId;
 use core::SegmentComponent;
+use schema::FieldType;
+use termdict::{TermDictionary, TermDictionaryImpl};
 use std::sync::RwLock;
 use common::HasLen;
 use core::SegmentMeta;
@@ -19,6 +21,8 @@ use core::InvertedIndexReader;
 use schema::Field;
 use fastfield::{MultiValueIntFastFieldReader, FastFieldReader, U64FastFieldReader};
 use schema::Schema;
+use fastfield::FacetReader;
+use error::ErrorKind;
 
 
 
@@ -100,7 +104,26 @@ impl SegmentReader {
         }
     }
 
-    pub fn facet_reader(&self, field: Field) -> Result<MultiValueIntFastFieldReader> {
+    pub fn facet_reader(&self, field: Field) -> Result<FacetReader> {
+        let field_entry = self.schema.get_field_entry(field);
+        if field_entry.field_type() != &FieldType::HierarchicalFacet {
+            return Err(ErrorKind::InvalidArgument(format!("The field {:?} is not a \
+                    hierarchical facet.", field_entry)).into())
+        }
+        let term_ords_reader = self.multi_value_reader(field)?;
+        let termdict_source = self.termdict_composite
+            .open_read(field)
+            .ok_or_else(|| {
+                ErrorKind::InvalidArgument(format!("The field \"{}\" is a hierarchical \
+                    but this segment does not seem to have the field term \
+                    dictionary.", field_entry.name()))
+            })?;
+        let termdict = TermDictionaryImpl::from_source(termdict_source);
+        let facet_reader = FacetReader::new(term_ords_reader, termdict);
+        Ok(facet_reader)
+    }
+
+    pub fn multi_value_reader(&self, field: Field) -> Result<MultiValueIntFastFieldReader> {
         let field_entry = self.schema.get_field_entry(field);
         let idx_reader = self.fast_fields_composite
             .open_read_with_idx(field, 0)
@@ -151,7 +174,6 @@ impl SegmentReader {
                 CompositeFile::empty()
             }
         };
-
 
         let fast_fields_data = segment.open_read(SegmentComponent::FASTFIELDS)?;
         let fast_fields_composite = CompositeFile::open(fast_fields_data)?;
@@ -239,7 +261,6 @@ impl SegmentReader {
         self.store_reader.get(doc_id)
     }
 
-
     /// Returns the segment id
     pub fn segment_id(&self) -> SegmentId {
         self.segment_id
@@ -250,7 +271,6 @@ impl SegmentReader {
     pub fn delete_bitset(&self) -> &DeleteBitSet {
         &self.delete_bitset
     }
-
 
     /// Returns true iff the `doc` is marked
     /// as deleted.
