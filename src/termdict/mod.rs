@@ -48,7 +48,7 @@ followed by a streaming through at most `1024` elements in the
 term `stream`.
 */
 
-use schema::{Field, Term, FieldType};
+use schema::{Term, Field, FieldType};
 use directory::ReadOnlySource;
 use postings::TermInfo;
 
