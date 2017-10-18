@@ -38,21 +38,45 @@ impl Facet {
     pub fn from_path<Path>(path: Path) -> Facet
         where
             Path: IntoIterator,
-            Path::Item: Display {
+            Path::Item: ToString {
         let mut facet_bytes: Vec<u8> = Vec::with_capacity(100);
         let mut step_it = path.into_iter();
         if let Some(step) = step_it.next() {
-            write!(&mut facet_bytes, "{}", step);
+            facet_bytes.extend_from_slice(step.to_string().as_bytes())
         }
         for step in step_it {
             facet_bytes.push(SEP_BYTE);
-            write!(&mut facet_bytes, "{}", step);
+            facet_bytes.extend_from_slice(step.to_string().as_bytes());
         }
         Facet(facet_bytes)
     }
 
-    pub fn from_str(path: &str) -> Facet {
-        // TODO check that path has the right format
+    pub(crate) fn inner_buffer_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.0
+    }
+
+    pub fn to_string(&self) -> String {
+        format!("{}", self)
+    }
+
+    pub fn prefixes(&self) -> Vec<&[u8]> {
+        let mut prefixes: Vec<&[u8]> = self.0
+            .iter()
+            .cloned()
+            .enumerate()
+            .filter(|&(_, b)| b==SEP_BYTE)
+            .map(|(pos, _)| &self.0[0..pos])
+            .collect();
+        prefixes.push(&self.0[..]);
+        prefixes
+    }
+}
+
+
+impl<'a, T: ?Sized + AsRef<str>> From<&'a T> for Facet {
+
+    fn from(path_asref: &'a T) -> Facet {
+        let path: &str = path_asref.as_ref();
         assert!(!path.contains(SEP));
         let mut facet_encoded = Vec::new();
         let mut state = State::Idle;
@@ -75,26 +99,6 @@ impl Facet {
             }
         }
         Facet(facet_encoded)
-    }
-
-    pub(crate) fn inner_buffer_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.0
-    }
-
-    pub fn to_string(&self) -> String {
-        format!("{}", self)
-    }
-
-    pub fn prefixes(&self) -> Vec<&[u8]> {
-        let mut prefixes: Vec<&[u8]> = self.0
-            .iter()
-            .cloned()
-            .enumerate()
-            .filter(|&(_, b)| b==SEP_BYTE)
-            .map(|(pos, _)| &self.0[0..pos])
-            .collect();
-        prefixes.push(&self.0[..]);
-        prefixes
     }
 }
 
@@ -138,7 +142,7 @@ impl<'de> Deserialize<'de> for Facet {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where
         D: Deserializer<'de> {
         <&'de str as Deserialize<'de>>::deserialize(deserializer)
-            .map(Facet::from_str)
+            .map(Facet::from)
     }
 }
 

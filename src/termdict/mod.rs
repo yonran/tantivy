@@ -214,7 +214,7 @@ mod tests {
     use super::{TermDictionaryImpl, TermDictionaryBuilderImpl, TermStreamerImpl};
     use directory::{RAMDirectory, Directory, ReadOnlySource};
     use std::path::PathBuf;
-    use schema::{FieldType, Term, SchemaBuilder, Document, TEXT};
+    use schema::{FieldType, SchemaBuilder, Document, TEXT};
     use core::Index;
     use std::str;
     use termdict::TermStreamer;

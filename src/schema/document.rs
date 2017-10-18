@@ -52,8 +52,9 @@ impl Document {
     }
 
     // TODO argument Into<Facet>
-    pub fn add_facet(&mut self, field: Field, path: &str) {
-        let facet = Facet::from_str(path);
+    pub fn add_facet<F>(&mut self, field: Field, path: F)
+        where Facet: From<F> {
+        let facet = Facet::from(path);
         let value = Value::HierarchicalFacet(facet);
         self.add(FieldValue::new(field, value));
     }
