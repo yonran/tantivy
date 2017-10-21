@@ -4,7 +4,6 @@ use schema::Field;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use schema::Facet;
-use std::fmt::{self, Debug};
 
 use DocId;
 use Result;
@@ -12,32 +11,51 @@ use Score;
 use SegmentReader;
 use SegmentLocalId;
 
+/// Builder for the `FacetCollector`.
 #[derive(Clone)]
 pub struct FacetCollectorBuilder {
     field: Field,
-    root_facet: Option<Facet>,
+    root_facet: Facet,
     depth: Option<usize>,
 }
 
 impl FacetCollectorBuilder {
+
+    /// Crate a facet collector to collect the facets
+    /// from a specific `Field`.
     pub fn for_field(field: Field) -> FacetCollectorBuilder {
         FacetCollectorBuilder {
             field: field,
-            root_facet: None,
+            root_facet: Facet::root(),
             depth: None,
         }
     }
 
+    /// Sets the root facet.
+    ///
+    /// Only the descendant of the root
+    /// facet will be collected.
+    ///
+    /// Together with `set_depth(...)` this method
+    /// makes it possible to implement a "drill down" user
+    /// experience.
     pub fn set_root_facet(mut self, facet: Facet) -> FacetCollectorBuilder {
-        self.root_facet = Some(facet);
+        self.root_facet = facet;
         self
     }
 
+    /// Sets the depth that should be considered for
+    /// collections.
+    ///
+    /// For instance, if depth is set to 1, only the
+    /// counts of the direct child of the `root_facet`
+    /// will be collected.
     pub fn set_depth(mut self, depth: usize) -> FacetCollectorBuilder {
         self.depth = Some(depth);
         self
     }
 
+    /// Builds the facet collector.
     pub fn build(self) -> FacetCollector {
         FacetCollector {
             field: self.field,
@@ -49,7 +67,6 @@ impl FacetCollectorBuilder {
 }
 
 pub struct FacetCollector {
-    // local_counters: HashMap::new(),
     field: Field,
     ff_reader: Option<UnsafeCell<FacetReader>>,
     local_counters: Vec<u64>,
@@ -61,7 +78,7 @@ impl FacetCollector {
         for (term_ord, count) in self.local_counters.iter_mut().enumerate() {
             if *count > 0 {
                 if let Some(ff_reader) = self.ff_reader.as_mut() {
-                    let facet = unsafe { (*ff_reader.get()).facet_from_ord(term_ord).clone() };
+                    let facet = unsafe { (*ff_reader.get()).facet_from_ord(term_ord as u64).clone() };
                     *self.global_counters.entry(facet)
                         .or_insert(0) += *count;
                 }
@@ -70,7 +87,12 @@ impl FacetCollector {
         }
     }
 
-    fn counts(mut self) -> HashMap<Facet, u64> {
+
+    /// Returns the results of the collection.
+    ///
+    /// This method does not just return the counters,
+    /// it also translates the facet ordinals of the last segment.
+    pub fn counts(mut self) -> HashMap<Facet, u64> {
         self.translate_ordinals();
         self.global_counters
 
@@ -83,7 +105,7 @@ impl Collector for FacetCollector {
         self.translate_ordinals();
         self.local_counters.clear();
         let facet_reader = reader.facet_reader(self.field)?;
-        self.local_counters.resize(facet_reader.num_terms(), 0);
+        self.local_counters.resize(facet_reader.num_facets(), 0);
         self.ff_reader = Some(UnsafeCell::new(facet_reader));
         // TODO use the number of terms to resize the local counters
         Ok(())
@@ -99,12 +121,13 @@ impl Collector for FacetCollector {
                     )
                     .get()
             };
-        let facet_ords: &[u64] = facet_reader.term_ords(doc);
+        let facet_ords: &[u64] = facet_reader.facet_ords(doc);
         for &facet_ord in facet_ords {
             self.local_counters[facet_ord as usize] += 1;
         }
     }
 }
+
 
 
 #[cfg(test)]

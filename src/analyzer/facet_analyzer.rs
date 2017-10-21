@@ -1,5 +1,6 @@
 use super::{Token, Analyzer, TokenStream};
 use std::str;
+use schema::FACET_SEP_BYTE;
 
 #[derive(Clone)]
 pub struct FacetTokenizer;
@@ -27,18 +28,18 @@ impl<'a> TokenStream for FacetTokenStream<'a> {
     fn advance(&mut self) -> bool {
         let bytes: &[u8] = self.text.as_bytes();
         if self.pos == bytes.len() {
-            return false;
+            false
         } else {
             let next_sep_pos = bytes[self.pos + 1..]
                 .iter()
                 .cloned()
-                .position(|b| b == 31u8)
+                .position(|b| b == FACET_SEP_BYTE)
                 .map(|pos| pos + self.pos + 1)
                 .unwrap_or(bytes.len());
-            let facet_prefix = unsafe { ::std::str::from_utf8_unchecked(&bytes[self.pos..next_sep_pos]) };
+            let facet_prefix = unsafe { str::from_utf8_unchecked(&bytes[self.pos..next_sep_pos]) };
             self.pos = next_sep_pos;
             self.token.term.push_str(facet_prefix);
-            return true;
+            true
         }
     }
 

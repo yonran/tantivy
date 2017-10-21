@@ -748,9 +748,9 @@ mod tests {
     #[should_panic(expected="Field text already exists")]
     fn test_wrong_fast_field_type() {
         let mut schema_builder = SchemaBuilder::default();
-        let fast_field_unsigned = schema_builder.add_u64_field("unsigned", FAST);
-        let fast_field_signed = schema_builder.add_i64_field("signed", FAST);
-        let text_field = schema_builder.add_text_field("text", TEXT);
-        let stored_int_field = schema_builder.add_u64_field("text", INT_STORED);
+        schema_builder.add_u64_field("unsigned", FAST);
+        schema_builder.add_i64_field("signed", FAST);
+        schema_builder.add_text_field("text", TEXT);
+        schema_builder.add_u64_field("text", INT_STORED);
     }
 }

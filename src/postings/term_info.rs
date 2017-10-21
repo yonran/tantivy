@@ -25,7 +25,9 @@ pub struct TermInfo {
 }
 
 impl TermInfo {
-    pub const SIZE_IN_BYTES: usize = 4 + 4 + 4 + 1; // < make that much smaller.
+    /// Size required to encode the `TermInfo`.
+    // TODO  make this smaller when positions are unused for instance.
+    pub(crate) const SIZE_IN_BYTES: usize = 4 + 4 + 4 + 1;
 }
 
 impl BinarySerializable for TermInfo {

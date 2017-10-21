@@ -43,7 +43,12 @@ impl Default for TextOptions {
     }
 }
 
-
+/// `TextFieldIndexing` describes how a text field should
+/// be indexed.
+///
+/// It defines separately
+///    - which [`Analyzer`](../analyzer/trait.Analyzer.html) to use to produce tokens from our text.
+///    - whether or not we should also store their term frequency and their positions
 #[derive(Clone,  PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct TextFieldIndexing {
     record: IndexRecordOption,
@@ -61,20 +66,34 @@ impl Default for TextFieldIndexing {
 }
 
 impl TextFieldIndexing {
+    /// Sets the analyzer to be used.
+    ///
+    /// Analyzer are identified by an `name`.
+    /// The analyzer manager is in charge of resolving
+    /// this `name` to the right analyzer.
+    ///
+    /// This function successfully returning does not
+    /// ensure that such an analyzer is available.
     pub fn set_analyzer(mut self, analyzer_name: &str) -> TextFieldIndexing {
         self.analyzer = Cow::Owned(analyzer_name.to_string());
         self
     }
 
+    /// Return the name of the analyzer used
     pub fn analyzer(&self) -> &str {
         &self.analyzer
     }
 
+    /// Sets how much data should be stored with each token.
+    ///
+    /// See [IndexRecordOption](./enum.IndexRecordOption.html) for more detail
+    /// about the options available.
     pub fn set_index_option(mut self, index_option: IndexRecordOption) -> TextFieldIndexing {
         self.record = index_option;
         self
     }
 
+    /// Returns the `IndexRecordOption`.
     pub fn index_option(&self) -> IndexRecordOption {
         self.record
     }

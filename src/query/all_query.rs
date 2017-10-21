@@ -9,6 +9,10 @@ use DocId;
 use std::any::Any;
 use core::Searcher;
 
+
+/// Query that matches all of the documents.
+///
+/// All of the document get the score 1f32.
 #[derive(Debug)]
 pub struct AllQuery;
 
@@ -17,12 +21,12 @@ impl Query for AllQuery {
         self
     }
 
-    fn weight(&self, searcher: &Searcher) -> Result<Box<Weight>> {
+    fn weight(&self, _: &Searcher) -> Result<Box<Weight>> {
         Ok(box AllWeight)
     }
 }
 
-
+/// Weight associated to the `AllQuery` query.
 pub struct AllWeight;
 
 impl Weight for AllWeight {
@@ -35,6 +39,8 @@ impl Weight for AllWeight {
     }
 }
 
+
+/// Scorer associated to the `AllQuery` query.
 pub struct AllScorer {
     started: bool,
     doc: DocId,

@@ -6,35 +6,68 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use common::BinarySerializable;
 
+
+const SLASH_BYTE: u8 = '/' as u8;
+const ESCAPE_BYTE: u8 = '\\' as u8;
+
+/// BYTE used as a level separation in the binary
+/// representation of facets.
+pub const FACET_SEP_BYTE: u8 = 0u8;
+
+/// A Facet represent a point in a given hierarchy.
+///
+/// They are typically represented similarly to a filepath.
+/// For instance, an e-commerce website could
+/// have a `Facet` for `/electronics/tv_and_video/led_tv`.
+///
+/// A document can be associated to any number of facets.
+/// The hierarchy implicitely imply that a document
+/// belonging to a facet also belongs to the ancestor of
+/// its facet. In the example above, `/electronics/tv_and_video/`
+/// and `/electronics`.
 #[derive(Clone, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct Facet(Vec<u8>);
 
-const SLASH_BYTE: u8 = '/' as u8;
-const SEP: &'static str = "\u{1f}";
-const SEP_BYTE: u8 = 31u8;
-const ESCAPE_BYTE: u8 = '\\' as u8;
-
-#[derive(Copy, Clone)]
-enum State {
-    Escaped,
-    Idle,
-}
-
-
 impl Facet {
 
-    pub(crate) fn new() -> Facet {
+    /// Returns a new instance of the "root facet"
+    /// Equivalent to `/`.
+    pub(crate) fn root() -> Facet {
         Facet(Vec::new())
     }
 
-    pub(crate) fn encoded_bytes(&self) -> &[u8] {
+    /// Returns a binary representation of the facet.
+    ///
+    /// In this representation, `0u8` is used as a separator
+    /// and the string parts of the facet are unescaped.
+    /// (The first `/` is not encoded at all).
+    ///
+    /// This representation has the benefit of making it possible to
+    /// express "being a child of a given facet" as a range over
+    /// the term ordinals.
+    pub fn encoded_bytes(&self) -> &[u8] {
         &self.0
     }
 
-    pub(crate) fn from_encoded(encoded_bytes: Vec<u8>) -> Facet {
+    /// Creates a `Facet` from its binary representation.
+    pub fn from_encoded(encoded_bytes: Vec<u8>) -> Facet {
         Facet(encoded_bytes)
     }
 
+    /// Parse a text representation of a facet.
+    ///
+    /// It is conceptually, if one of the steps of this path
+    /// contains a `/` or a `\`, it should be escaped
+    /// using an anti-slash `/`.
+    pub fn from_text<'a, T>(path: &'a T) -> Facet
+        where T: ?Sized + AsRef<str> {
+        From::from(path)
+    }
+
+    /// Returns a `Facet` from an iterator over the different
+    /// steps of the facet path.
+    ///
+    /// The steps are expected to be unescaped.
     pub fn from_path<Path>(path: Path) -> Facet
         where
             Path: IntoIterator,
@@ -45,30 +78,15 @@ impl Facet {
             facet_bytes.extend_from_slice(step.to_string().as_bytes())
         }
         for step in step_it {
-            facet_bytes.push(SEP_BYTE);
+            facet_bytes.push(FACET_SEP_BYTE);
             facet_bytes.extend_from_slice(step.to_string().as_bytes());
         }
         Facet(facet_bytes)
     }
 
+    /// Accessor for the inner buffer of the `Facet`.
     pub(crate) fn inner_buffer_mut(&mut self) -> &mut Vec<u8> {
         &mut self.0
-    }
-
-    pub fn to_string(&self) -> String {
-        format!("{}", self)
-    }
-
-    pub fn prefixes(&self) -> Vec<&[u8]> {
-        let mut prefixes: Vec<&[u8]> = self.0
-            .iter()
-            .cloned()
-            .enumerate()
-            .filter(|&(_, b)| b==SEP_BYTE)
-            .map(|(pos, _)| &self.0[0..pos])
-            .collect();
-        prefixes.push(&self.0[..]);
-        prefixes
     }
 }
 
@@ -76,8 +94,12 @@ impl Facet {
 impl<'a, T: ?Sized + AsRef<str>> From<&'a T> for Facet {
 
     fn from(path_asref: &'a T) -> Facet {
+        #[derive(Copy, Clone)]
+        enum State {
+            Escaped,
+            Idle,
+        }
         let path: &str = path_asref.as_ref();
-        assert!(!path.contains(SEP));
         let mut facet_encoded = Vec::new();
         let mut state = State::Idle;
         let path_bytes = path.as_bytes();
@@ -87,7 +109,7 @@ impl<'a, T: ?Sized + AsRef<str>> From<&'a T> for Facet {
                     state = State::Escaped
                 }
                 (State::Idle, SLASH_BYTE) => {
-                    facet_encoded.push(SEP_BYTE);
+                    facet_encoded.push(FACET_SEP_BYTE);
                 }
                 (State::Escaped, any_char) => {
                     state = State::Idle;
@@ -115,7 +137,7 @@ impl BinarySerializable for Facet {
 
 impl Display for Facet {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for step in self.0.split(|&b| b == SEP_BYTE) {
+        for step in self.0.split(|&b| b == FACET_SEP_BYTE) {
             write!(f, "/")?;
             let step_str = unsafe { str::from_utf8_unchecked(step) };
             write!(f, "{}", escape_slashes(step_str))?;
@@ -132,8 +154,8 @@ fn escape_slashes(s: &str) -> Cow<str> {
 }
 
 impl Serialize for Facet {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where
-        S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer {
         serializer.serialize_str(&self.to_string())
     }
 }

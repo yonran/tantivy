@@ -104,6 +104,7 @@ impl SegmentReader {
         }
     }
 
+    /// Returns the `FacetReader` associated to a given `Field`.
     pub fn facet_reader(&self, field: Field) -> Result<FacetReader> {
         let field_entry = self.schema.get_field_entry(field);
         if field_entry.field_type() != &FieldType::HierarchicalFacet {

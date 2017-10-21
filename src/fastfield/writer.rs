@@ -1,4 +1,4 @@
-use schema::{Schema, Field, Document, FastFieldCardinality};
+use schema::{Schema, Field, Document, Cardinality};
 use fastfield::FastFieldSerializer;
 use std::io;
 use schema::Value;
@@ -34,12 +34,12 @@ impl FastFieldsWriter {
             match *field_entry.field_type() {
                 FieldType::I64(ref int_options) | FieldType::U64(ref int_options) => {
                     match int_options.get_fastfield_cardinality() {
-                        Some(FastFieldCardinality::SingleValue) => {
+                        Some(Cardinality::SingleValue) => {
                             let mut fast_field_writer = IntFastFieldWriter::new(field);
                             fast_field_writer.set_val_if_missing(default_value);
                             single_value_writers.push(fast_field_writer);
                         }
-                        Some(FastFieldCardinality::MultiValues) => {
+                        Some(Cardinality::MultiValues) => {
                             let fast_field_writer = MultiValueIntFastFieldWriter::new(field);
                             multi_values_writers.push(fast_field_writer);
                         }
@@ -78,8 +78,13 @@ impl FastFieldsWriter {
             })
     }
 
-    pub fn get_multivalue_writer(&mut self, field: Field) -> Option<&mut MultiValueIntFastFieldWriter> {
+    /// Returns the fast field multi-value writer for the given field.
+    ///
+    /// Returns None if the field does not exist, or is not
+    /// configured as a multivalued fastfield in the schema.
+    pub(crate) fn get_multivalue_writer(&mut self, field: Field) -> Option<&mut MultiValueIntFastFieldWriter> {
         // TODO optimize
+        // TODO expose for users
         self.multi_values_writers
             .iter_mut()
             .find(|multivalue_writer| {
@@ -159,6 +164,7 @@ impl IntFastFieldWriter {
         }
     }
 
+    /// Returns the field that this writer is targetting.
     pub fn field(&self) -> Field {
         self.field
     }

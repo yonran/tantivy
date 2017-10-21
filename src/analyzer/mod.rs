@@ -1,3 +1,18 @@
+/// Analyzers are in charge of processing text to make it ready for
+/// indexing.
+///
+/// An analyzer starts by a tokenizer, in charge of cutting the
+/// text into tokens. The tokens then go through a sequence of
+/// `TokenFilter`s that may
+/// - filtering irrelevant tokens (e.g: `RemoveLongFilter`)
+/// - normalize tokens (e.g. `Stemmer`)
+/// - split, merge or insert extra tokens.
+///
+/// Currently `tantivy`'s `Analyzer` library is very crude,
+/// but it can be extended.
+///
+
+
 mod analyzer;
 mod simple_tokenizer;
 mod lower_caser;

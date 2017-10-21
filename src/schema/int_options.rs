@@ -1,10 +1,14 @@
 use std::ops::BitOr;
 
 
+/// Express whether a field is single-value or multi-valued.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum FastFieldCardinality {
+pub enum Cardinality {
+    /// The document must have exactly one value associated to the document.
     #[serde(rename = "single")]
     SingleValue,
+    /// The document can have any number of values associated to the document.
+    /// This is more memory and CPU expensive than the SingleValue solution.
     #[serde(rename = "multi")]
     MultiValues
 }
@@ -14,7 +18,7 @@ pub enum FastFieldCardinality {
 pub struct IntOptions {
     indexed: bool,
     #[serde(skip_serializing_if="Option::is_none")]
-    fast: Option<FastFieldCardinality>,
+    fast: Option<Cardinality>,
     stored: bool,
 }
 
@@ -58,22 +62,16 @@ impl IntOptions {
     /// Access time are similar to a random lookup in an array.
     /// If more than one value is associated to a fast field, only the last one is
     /// kept.
-    pub fn set_fast(mut self, cardinality: FastFieldCardinality) -> IntOptions {
+    pub fn set_fast(mut self, cardinality: Cardinality) -> IntOptions {
         self.fast = Some(cardinality);
         self
     }
 
-    pub fn set_fast_singlevalued(mut self) -> IntOptions {
-        self.fast = Some(FastFieldCardinality::SingleValue);
-        self
-    }
-
-    pub fn set_fast_multivalued(mut self) -> IntOptions {
-        self.fast = Some(FastFieldCardinality::MultiValues);
-        self
-    }
-
-    pub fn get_fastfield_cardinality(&self) -> Option<FastFieldCardinality> {
+    /// Returns the cardinality of the fastfield.
+    ///
+    /// If the field has not been declared as a fastfield, then
+    /// the method returns None.
+    pub fn get_fastfield_cardinality(&self) -> Option<Cardinality> {
         self.fast
     }
 }
@@ -95,7 +93,7 @@ impl Default for IntOptions {
 pub const FAST: IntOptions = IntOptions {
     indexed: false,
     stored: false,
-    fast: Some(FastFieldCardinality::SingleValue),
+    fast: Some(Cardinality::SingleValue),
 };
 
 /// Shortcut for a u64 indexed field.

@@ -89,12 +89,20 @@ where
     /// Opens a `TermDictionary` given a data source.
     fn from_source(source: ReadOnlySource) -> Self;
 
-    fn term_ord<K: AsRef<[u8]>>(&self, key: K) -> Option<TermOrdinal>;
+    /// Returns the ordinal associated to a given term.
+    fn term_ord<K: AsRef<[u8]>>(&self, term: K) -> Option<TermOrdinal>;
 
+    /// Returns the term ordinal for a given term.
+    ///
+    /// Term ordinals are defined as the position of the term in
+    /// the sorted list of terms.
     fn ord_to_term(&self, ord: TermOrdinal, bytes: &mut Vec<u8>) -> bool;
 
+    /// Returns the number of terms in the dictionary.
     fn term_info_from_ord(&self, term_ord: TermOrdinal) -> TermInfo;
 
+    /// Returns the number of terms in the dictionary.
+    /// Term ordinals range from 0 to `num_terms() - 1`.
     fn num_terms(&self) -> usize;
 
     /// Lookups the value corresponding to the key.

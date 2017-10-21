@@ -86,7 +86,7 @@ impl SchemaBuilder {
         self.add_field(field_entry)
     }
 
-
+    /// Adds a facet field to the schema.
     pub fn add_facet_field(&mut self, field_name: &str) -> Field {
         let field_entry = FieldEntry::new_facet(field_name.to_string());
         self.add_field(field_entry)
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     pub fn test_schema_serialization() {
         let mut schema_builder = SchemaBuilder::default();
-        let count_options = IntOptions::default().set_stored().set_fast_singlevalued();
+        let count_options = IntOptions::default().set_stored().set_fast(Cardinality::SingleValue);
         let popularity_options = IntOptions::default().set_stored();
         schema_builder.add_text_field("title", TEXT);
         schema_builder.add_text_field("author", STRING);
@@ -424,7 +424,7 @@ mod tests {
     #[test]
     pub fn test_document_to_json() {
         let mut schema_builder = SchemaBuilder::default();
-        let count_options = IntOptions::default().set_stored().set_fast_singlevalued();
+        let count_options = IntOptions::default().set_stored().set_fast(Cardinality::SingleValue);
         schema_builder.add_text_field("title", TEXT);
         schema_builder.add_text_field("author", STRING);
         schema_builder.add_u64_field("count", count_options);
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     pub fn test_document_with_facet_from_json() {
         let mut schema_builder = SchemaBuilder::default();
-        let count_options = IntOptions::default().set_stored().set_fast_singlevalued();
+        let count_options = IntOptions::default().set_stored().set_fast(Cardinality::SingleValue);
         schema_builder.add_text_field("title", TEXT);
         schema_builder.add_text_field("author", STRING);
         schema_builder.add_u64_field("count", count_options);
@@ -462,8 +462,8 @@ mod tests {
     #[test]
     pub fn test_parse_document() {
         let mut schema_builder = SchemaBuilder::default();
-        let count_options = IntOptions::default().set_stored().set_fast_singlevalued();
-        let popularity_options = IntOptions::default().set_stored().set_fast_singlevalued();
+        let count_options = IntOptions::default().set_stored().set_fast(Cardinality::SingleValue);
+        let popularity_options = IntOptions::default().set_stored().set_fast(Cardinality::SingleValue);
         let title_field = schema_builder.add_text_field("title", TEXT);
         let author_field = schema_builder.add_text_field("author", STRING);
         let count_field = schema_builder.add_u64_field("count", count_options);
