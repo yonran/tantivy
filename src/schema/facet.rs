@@ -32,8 +32,14 @@ impl Facet {
 
     /// Returns a new instance of the "root facet"
     /// Equivalent to `/`.
-    pub(crate) fn root() -> Facet {
-        Facet(Vec::new())
+    pub fn root() -> Facet {
+        Facet(vec![])
+    }
+
+
+    /// Returns true iff the facet is the root facet `/`.
+    pub fn is_root(&self) -> bool {
+        self.encoded_bytes().is_empty()
     }
 
     /// Returns a binary representation of the facet.
@@ -50,7 +56,7 @@ impl Facet {
     }
 
     /// Creates a `Facet` from its binary representation.
-    pub fn from_encoded(encoded_bytes: Vec<u8>) -> Facet {
+    pub(crate) fn from_encoded(encoded_bytes: Vec<u8>) -> Facet {
         Facet(encoded_bytes)
     }
 
@@ -75,7 +81,7 @@ impl Facet {
         let mut facet_bytes: Vec<u8> = Vec::with_capacity(100);
         let mut step_it = path.into_iter();
         if let Some(step) = step_it.next() {
-            facet_bytes.extend_from_slice(step.to_string().as_bytes())
+            facet_bytes.extend_from_slice(step.to_string().as_bytes());
         }
         for step in step_it {
             facet_bytes.push(FACET_SEP_BYTE);

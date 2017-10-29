@@ -2,12 +2,15 @@ use std::sync::Arc;
 use super::{TokenFilterFactory, TokenStream, Token};
 use rust_stemmers::{self, Algorithm};
 
+
+/// Stemming `TokenFilter`.
 #[derive(Clone)]
 pub struct Stemmer {
     stemmer_algorithm: Arc<Algorithm>,
 }
 
 impl Stemmer {
+    /// Creates a new stemming `TokenFilter` for English.
     pub fn new() -> Stemmer {
         Stemmer { stemmer_algorithm: Arc::new(Algorithm::English) }
     }

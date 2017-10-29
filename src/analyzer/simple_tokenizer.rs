@@ -2,6 +2,8 @@
 use std::str::CharIndices;
 use super::{Token, Analyzer, TokenStream};
 
+/// The `SimpleTokenizer` just splits the text on each non
+/// alphanumeric character.
 #[derive(Clone)]
 pub struct SimpleTokenizer;
 

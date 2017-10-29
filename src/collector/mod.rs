@@ -20,7 +20,7 @@ mod int_facet_collector;
 pub use self::int_facet_collector::IntFacetCollector;
 
 mod facet_collector;
-pub use self::facet_collector::FacetCollector;
+pub use self::facet_collector::{FacetCollector, FacetCounts};
 
 mod chained_collector;
 pub use self::chained_collector::chain;

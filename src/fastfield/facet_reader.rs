@@ -21,7 +21,6 @@ use termdict::{TermDictionary, TermDictionaryImpl};
 pub struct FacetReader {
     term_ords: MultiValueIntFastFieldReader,
     term_dict: TermDictionaryImpl,
-    facet: Facet,
 }
 
 impl FacetReader {
@@ -38,7 +37,6 @@ impl FacetReader {
         FacetReader {
             term_ords: term_ords,
             term_dict: term_dict,
-            facet: Facet::root()
         }
     }
 
@@ -51,15 +49,19 @@ impl FacetReader {
         self.term_dict.num_terms()
     }
 
+    /// Accessor for the facet term dictionary.
+    pub fn facet_dict(&self) -> &TermDictionaryImpl {
+        &self.term_dict
+    }
+
     /// Given a term ordinal returns the term associated to it.
-    pub fn facet_from_ord(&mut self, facet_ord: TermOrdinal) -> &Facet {
-        let found_term = self.term_dict.ord_to_term(facet_ord as u64, self.facet.inner_buffer_mut());
+    pub fn facet_from_ord(&self, facet_ord: TermOrdinal, output: &mut Facet) {
+        let found_term = self.term_dict.ord_to_term(facet_ord as u64, output.inner_buffer_mut());
         assert!(found_term, "Term ordinal {} no found.", facet_ord);
-        &self.facet
     }
 
     /// Return the list of facet ordinals associated to a document.
-    pub fn facet_ords(&mut self, doc: DocId) -> &[TermOrdinal] {
-        self.term_ords.get_vals(doc)
+    pub fn facet_ords(&mut self, doc: DocId, output: &mut Vec<u64>) {
+        self.term_ords.get_vals(doc, output);
     }
 }

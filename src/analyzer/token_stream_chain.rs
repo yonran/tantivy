@@ -1,5 +1,20 @@
 use analyzer::{TokenStream, Token};
 
+
+/// We do not want phrase queries to accidently match over two
+/// field values because the first one was ending by the beginning
+/// of the phrase while the second one was starting by the end of
+/// the phrase.
+///
+/// In order to address this behavior, we do add a position gap between
+/// the two fields.
+///
+/// The first one will contain tokens bearing position `0..n`
+/// The second one will contain tokens bearing position `n + POSITION_GAP..`
+const POSITION_GAP: usize = 2;
+
+/// `TokenStreamChain` is the result of the concatenation of a list
+/// of token streams.
 pub struct TokenStreamChain<TTokenStream: TokenStream> {
     offsets: Vec<usize>,
     token_streams: Vec<TTokenStream>,
@@ -8,10 +23,14 @@ pub struct TokenStreamChain<TTokenStream: TokenStream> {
     token: Token,
 }
 
-
 impl<'a, TTokenStream> TokenStreamChain<TTokenStream> 
     where TTokenStream: TokenStream {
-    
+
+    /// Creates a new chained token stream.
+    ///
+    /// `Offsets` makes it possible to shift each of the offsets
+    /// of the different `TokenStream`s by a given offset given
+    /// in argument.
     pub fn new(offsets: Vec<usize>,
                token_streams: Vec<TTokenStream>) -> TokenStreamChain<TTokenStream> {
         TokenStreamChain {
@@ -41,23 +60,25 @@ impl<'a, TTokenStream> TokenStream for TokenStreamChain<TTokenStream>
             }
             else {
                 self.stream_idx += 1;
-                self.position_shift = self.token.position + 2;
+                self.position_shift = self.token.position + POSITION_GAP;
             }
         }
         false
     }
 
     fn token(&self) -> &Token {
-        if self.stream_idx > self.token_streams.len() {
-            panic!("You called .token(), after the end of the token stream has been reached");
-        }
+        assert!(
+            self.stream_idx < self.token_streams.len(),
+            "You called .token() after the end of the token stream has been reached"
+        );
         &self.token
     }
 
     fn token_mut(&mut self) -> &mut Token {
-        if self.stream_idx > self.token_streams.len() {
-            panic!("You called .token(), after the end of the token stream has been reached");
-        }
+        assert!(
+            self.stream_idx < self.token_streams.len(),
+            "You called .token() after the end of the token stream has been reached"
+        );
         &mut self.token
     }
 }

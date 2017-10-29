@@ -46,12 +46,14 @@ impl Document {
         self.field_values.is_empty()
     }
 
+    /// Retain only the field that are matching the
+    /// predicate given in argument.
     pub fn filter_fields<P: Fn(Field)->bool>(&mut self, predicate: P) {
         self.field_values
             .retain(|field_value| predicate(field_value.field()));
     }
 
-    // TODO argument Into<Facet>
+    /// Adding a facet to the document.
     pub fn add_facet<F>(&mut self, field: Field, path: F)
         where Facet: From<F> {
         let facet = Facet::from(path);

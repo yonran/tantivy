@@ -25,6 +25,8 @@ pub struct AnalyzerManager {
 }
 
 impl AnalyzerManager {
+
+    /// Registers an analyzer with a given name.
     pub fn register<A>(&self, analyzer_name: &str, analyzer: A) 
         where A: 'static + Send + Sync + for <'a> Analyzer<'a> {
         let boxed_analyzer = box_analyzer(analyzer);
@@ -34,11 +36,16 @@ impl AnalyzerManager {
             .insert(analyzer_name.to_string(), boxed_analyzer);
     }
 
-    pub fn get(&self, analyzer_name: &str) -> Option<Box<BoxedAnalyzer>> {
+
+    /// Gets the analyzer with associated to the given name.
+    ///
+    /// If no analyzer exists for the given name,
+    pub fn get<Q>(&self, analyzer_name: &Q) -> Option<Box<BoxedAnalyzer>>
+        where Q: AsRef<str> + ?Sized {
         self.analyzers
             .read()
             .expect("Acquiring the lock should never fail")
-            .get(analyzer_name)
+            .get(analyzer_name.as_ref())
             .map(|boxed_analyzer| {
               boxed_analyzer.boxed_clone()  
             })

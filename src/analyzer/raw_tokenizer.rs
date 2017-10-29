@@ -1,8 +1,13 @@
 use super::{Token, Analyzer, TokenStream};
 
+
+/// The `RawTokenizer` does not cut the original string
+/// and emits a single token with the original string.
 #[derive(Clone)]
 pub struct RawTokenizer;
 
+
+/// `TokenStream` associated to the `RawTokenizer`.
 pub struct RawTokenStream {
     token: Token,
     has_token: bool,

@@ -51,6 +51,7 @@ pub trait FastFieldReader: Sized {
 }
 
 /// `FastFieldReader` for unsigned 64-bits integers.
+#[derive(Clone)]
 pub struct U64FastFieldReader {
     bit_unpacker: BitUnpacker<OwningRef<ReadOnlySource, [u8]>>,
     min_value: u64,

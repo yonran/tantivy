@@ -11,8 +11,8 @@ use fastfield::U64FastFieldReader;
 /// values for all reader.
 /// The `idx_reader` associated, for each document, the index of its first value.
 ///
+#[derive(Clone)]
 pub struct MultiValueIntFastFieldReader {
-    vals: Vec<u64>,
     idx_reader: U64FastFieldReader,
     vals_reader: U64FastFieldReader,
 }
@@ -21,22 +21,20 @@ impl MultiValueIntFastFieldReader {
 
     pub(crate) fn open(idx_reader: U64FastFieldReader, vals_reader: U64FastFieldReader) -> MultiValueIntFastFieldReader {
         MultiValueIntFastFieldReader {
-            vals: vec!(),
             idx_reader: idx_reader,
             vals_reader: vals_reader,
         }
     }
 
     /// Returns the array of values associated to the given `doc`.
-    pub fn get_vals(&mut self, doc: DocId) -> &[u64] {
+    pub fn get_vals(&self, doc: DocId, vals: &mut Vec<u64>) {
         let start = self.idx_reader.get(doc) as u32;
         let stop = self.idx_reader.get(doc + 1) as u32;
-        self.vals.clear();
+        vals.clear();
         for val_id in start..stop {
             let val = self.vals_reader.get(val_id);
-            self.vals.push(val);
+            vals.push(val);
         }
-        &self.vals[..]
     }
 }
 
@@ -45,7 +43,7 @@ impl MultiValueIntFastFieldReader {
 mod tests {
 
     use core::Index;
-    use schema::{Document, SchemaBuilder};
+    use schema::{Facet, Document, SchemaBuilder};
 
     #[test]
     fn test_multifastfield_reader() {
@@ -78,17 +76,37 @@ mod tests {
             .facet_reader(facet_field)
             .unwrap();
 
-        for i in 0..4 {
-            println!("facet_reader.facet_from_id(0).to_string() {}", facet_reader.facet_from_ord(i).to_string());
+        let mut facet = Facet::root();
+        {
+            facet_reader.facet_from_ord(0, &mut facet);
+            assert_eq!(facet, Facet::from("/category"));
         }
-        assert_eq!(facet_reader.facet_from_ord(0).to_string(), "/category");
-        assert_eq!(facet_reader.facet_from_ord(1).to_string(), "/category/cat1");
-        assert_eq!(facet_reader.facet_from_ord(2).to_string(), "/category/cat2");
-        assert_eq!(facet_reader.facet_from_ord(3).to_string(), "/category/cat3");
+        {
+            facet_reader.facet_from_ord(1, &mut facet);
+            assert_eq!(facet, Facet::from("/category/cat1"));
+        }
+        {
+            facet_reader.facet_from_ord(2, &mut facet);
+            assert_eq!(facet, Facet::from("/category/cat2"));
+        }
+        {
+            facet_reader.facet_from_ord(3, &mut facet);
+            assert_eq!(facet, Facet::from("/category/cat3"));
+        }
 
-        assert_eq!(facet_reader.facet_ords(0), &[2, 1]);
-        assert_eq!(facet_reader.facet_ords(1), &[2]);
-        assert_eq!(facet_reader.facet_ords(2), &[3]);
+        let mut vals = Vec::new();
+        {
+            facet_reader.facet_ords(0, &mut vals);
+            assert_eq!(&vals[..], &[2, 1]);
+        }
+        {
+            facet_reader.facet_ords(1, &mut vals);
+            assert_eq!(&vals[..], &[2]);
+        }
+        {
+            facet_reader.facet_ords(2, &mut vals);
+            assert_eq!(&vals[..], &[3]);
+        }
 
 
     }

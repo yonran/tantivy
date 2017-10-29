@@ -15,11 +15,15 @@ pub struct NamedFieldDocument(BTreeMap<String, Vec<ImplicitelyTypedValue>>);
 
 impl NamedFieldDocument {
 
+    /// Create an empty `NamedFieldDocument`
     pub fn new() -> NamedFieldDocument {
         NamedFieldDocument::default()
     }
 
-    pub fn insert_field(&mut self, field_name: String, values: Vec<Value>) {
+    /// Insert a new field.
+    /// If the field is already present in the `NamedFieldDocument`,
+    /// override the precedent values.
+    pub fn insert(&mut self, field_name: String, values: Vec<Value>) {
         let typed_value = values
             .into_iter()
             .map(ImplicitelyTypedValue)

@@ -35,11 +35,17 @@ impl Default for Token {
 // land in nightly.
 
 
+/// `Analyzer`s are the text processing pipeline in tantivy.
 pub trait Analyzer<'a>: Sized + Clone {
+
+    /// Type of the token stream created by the analyzer.
     type TokenStreamImpl: TokenStream;
 
+    /// Creates the `TokenStream` associated to a given text.
     fn token_stream(&mut self, text: &'a str) -> Self::TokenStreamImpl;
 
+    /// Chains a given `TokenFilter` to the given analyzer, and
+    /// returns the resulting analyzer.
     fn filter<NewFilter>(self, new_filter: NewFilter) -> ChainAnalyzer<NewFilter, Self>
         where NewFilter: TokenFilterFactory<<Self as Analyzer<'a>>::TokenStreamImpl>
     {
@@ -50,11 +56,18 @@ pub trait Analyzer<'a>: Sized + Clone {
     }
 }
 
+
+/// A `BoxedAnalyzer` is an analyzer that can produce boxed
+/// `TokenStream` and be `boxed clone`.
 pub trait BoxedAnalyzer: Send + Sync {
+    ///  Returns a boxed `TokenStream` for the given text.
     fn token_stream<'a>(&mut self, text: &'a str) -> Box<TokenStream + 'a>;
+    ///  Returns a boxed `TokenStream` for the given texts.
     fn token_stream_texts<'b>(&mut self, texts: &'b [&'b str]) -> Box<TokenStream + 'b>;
+    /// Returns a boxed clone.
     fn boxed_clone(&self) -> Box<BoxedAnalyzer>;
 }
+
 
 #[derive(Clone)]
 struct BoxableAnalyzer<A>(A) where A: for <'a> Analyzer<'a> + Send + Sync;
@@ -91,11 +104,11 @@ impl<A> BoxedAnalyzer for BoxableAnalyzer<A> where A: 'static + Send + Sync + fo
     }
 }
 
+/// Boxes a given `Analyzer`.
 pub fn box_analyzer<A>(a: A) -> Box<BoxedAnalyzer>
     where A: 'static + Send + Sync + for <'a> Analyzer<'a> {
     box BoxableAnalyzer(a)
 }
-
 
 impl<'b> TokenStream for Box<TokenStream + 'b> {
     fn advance(&mut self) -> bool {
@@ -114,14 +127,20 @@ impl<'b> TokenStream for Box<TokenStream + 'b> {
     }
 }
 
-
+/// A `TokenStream` is the equivalent of an iterator over `Token`s.
 pub trait TokenStream {
+    /// Advance to the next token.
     fn advance(&mut self) -> bool;
 
+    /// Returns the given token.
     fn token(&self) -> &Token;
 
+    /// Returns a mutable reference to the current token.
+    /// This is useful for token filters which process
+    /// tokens in place.
     fn token_mut(&mut self) -> &mut Token;
 
+    /// Helper to iterate over the tokens.
     fn next(&mut self) -> Option<&Token> {
         if self.advance() {
             Some(self.token())
@@ -130,10 +149,13 @@ pub trait TokenStream {
         }
     }
 
-    fn process(&mut self, sink: &mut FnMut(&Token)) -> u32 {
+    /// Helper to iterate through the token stream
+    /// and push each token to the `callback` function given
+    /// in argument.
+    fn process(&mut self, callback: &mut FnMut(&Token)) -> u32 {
         let mut num_tokens_pushed = 0u32;
         while self.advance() {
-            sink(self.token());
+            callback(self.token());
             num_tokens_pushed += 1u32;
         }
         num_tokens_pushed
@@ -161,8 +183,13 @@ impl<'a, HeadTokenFilterFactory, TailAnalyzer> Analyzer<'a>
 }
 
 
+/// Modifies a `Tokenstream`, for instance by chaining a different
+/// token filters.
 pub trait TokenFilterFactory<TailTokenStream: TokenStream>: Clone {
+
+    /// Type of the token stream resulting from modifying `TailTokenStream`.
     type ResultTokenStream: TokenStream;
 
+    /// Transform the given `TailTokenStream`.
     fn transform(&self, token_stream: TailTokenStream) -> Self::ResultTokenStream;
 }

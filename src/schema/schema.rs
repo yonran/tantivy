@@ -199,7 +199,7 @@ impl Schema {
                     field_val.value().clone()
                 })
                 .collect();
-            field_map.insert_field(field_name.to_string(), values);
+            field_map.insert(field_name.to_string(), values);
         }
         field_map
     }

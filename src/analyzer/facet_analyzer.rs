@@ -2,6 +2,15 @@ use super::{Token, Analyzer, TokenStream};
 use std::str;
 use schema::FACET_SEP_BYTE;
 
+
+/// The `FacetTokenizer` process a `Facet` binary representation
+/// and emits a token for all of its parent.
+///
+/// For instance,  `/america/north_america/canada`
+/// will emit the three following tokens
+///     - `/america/north_america/canada`
+///     - `/america/north_america`
+///     - `/america`
 #[derive(Clone)]
 pub struct FacetTokenizer;
 

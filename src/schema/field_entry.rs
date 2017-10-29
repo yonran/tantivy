@@ -48,7 +48,7 @@ impl FieldEntry {
         }
     }
 
-
+    /// Creates a field entry for a facet.
     pub fn new_facet(field_name: String) -> FieldEntry {
         FieldEntry {
             name: field_name,

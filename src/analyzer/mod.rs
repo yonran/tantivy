@@ -1,16 +1,17 @@
-/// Analyzers are in charge of processing text to make it ready for
-/// indexing.
-///
-/// An analyzer starts by a tokenizer, in charge of cutting the
-/// text into tokens. The tokens then go through a sequence of
-/// `TokenFilter`s that may
-/// - filtering irrelevant tokens (e.g: `RemoveLongFilter`)
-/// - normalize tokens (e.g. `Stemmer`)
-/// - split, merge or insert extra tokens.
-///
-/// Currently `tantivy`'s `Analyzer` library is very crude,
-/// but it can be extended.
-///
+//! Analyzers are in charge of processing text to make it ready for
+//! indexing.
+//!
+//! An analyzer starts by a tokenizer, in charge of cutting the
+//! text into tokens. The tokens then go through a sequence of
+//! `TokenFilter`s that may
+//!
+//! - filter irrelevant tokens (e.g: `RemoveLongFilter`)
+//! - normalize tokens (e.g. `Stemmer`)
+//! - split, merge or insert extra tokens.
+//!
+//! Currently `tantivy`'s `Analyzer` library is very crude,
+//! but it can be extended.
+//!
 
 
 mod analyzer;
@@ -30,8 +31,8 @@ pub use self::analyzer::BoxedAnalyzer;
 pub use self::analyzer_manager::AnalyzerManager;
 pub use self::simple_tokenizer::SimpleTokenizer;
 pub use self::raw_tokenizer::RawTokenizer;
-pub use self::token_stream_chain::TokenStreamChain;
-pub use self::facet_analyzer::FacetTokenizer;
+pub(crate) use self::token_stream_chain::TokenStreamChain;
+pub(crate) use self::facet_analyzer::FacetTokenizer;
 pub use self::japanese_tokenizer::JapaneseTokenizer;
 pub use self::remove_long::RemoveLongFilter;
 pub use self::lower_caser::LowerCaser;

@@ -104,7 +104,7 @@ impl SegmentReader {
         }
     }
 
-    /// Returns the `FacetReader` associated to a given `Field`.
+    /// Accessor to the `FacetReader` associated to a given `Field`.
     pub fn facet_reader(&self, field: Field) -> Result<FacetReader> {
         let field_entry = self.schema.get_field_entry(field);
         if field_entry.field_type() != &FieldType::HierarchicalFacet {
@@ -124,6 +124,7 @@ impl SegmentReader {
         Ok(facet_reader)
     }
 
+    /// Accessor to the `MultiValueIntFastFieldReader` associated to a given `Field`.
     pub fn multi_value_reader(&self, field: Field) -> Result<MultiValueIntFastFieldReader> {
         let field_entry = self.schema.get_field_entry(field);
         let idx_reader = self.fast_fields_composite

@@ -96,6 +96,11 @@ impl QueryParser {
         }
     }
 
+    /// Creates the `QueryParser` associated to the given index.
+    ///
+    /// If the `query` text does not use the `field:text` syntax,
+    /// to specify a field, then the query will apply to the list of fields
+    /// defined as `default_field.`
     pub fn for_index(index: Index,
                      default_fields: Vec<Field>) -> QueryParser {
         QueryParser::new(
