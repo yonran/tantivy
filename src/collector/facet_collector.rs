@@ -101,6 +101,7 @@ fn facet_depth(facet_bytes: &[u8]) -> usize {
 ///     // this object contains count aggregate for all of the facets.
 ///     let counts = facet_collector.harvest();
 ///
+///     // This lists all of the facet counts
 ///     let facets: Vec<(Facet, u64)> = counts
 ///         .iter()
 ///         .collect();
@@ -130,6 +131,7 @@ fn facet_depth(facet_bytes: &[u8]) -> usize {
 ///     Ok(())
 /// }
 /// ```
+
 pub struct FacetCollector {
     facet_ords: Vec<u64>,
     field: Field,
@@ -245,9 +247,9 @@ impl<'a> Iterator for FacetIteratorWithDepth<'a> {
                             return Some((facet, emitting_count));
                         }
                     }
+                } else {
+                    self.current_count += facet_count;
                 }
-
-                self.current_count += facet_count;
             }
         }
         self.current_facet
@@ -510,53 +512,47 @@ mod tests {
                 .collect::<Vec<_>>());
         }
         {
-            let facets: Vec<(Facet, u64)> = counts
-                .root(Facet::from("/top1"))
+            let rerooted = counts.root(Facet::from("/top1"));
+            let facets: Vec<(Facet, u64)> = rerooted
                 .iter()
                 .collect();
             // For simplicity, Facet implements `PartialEq<&str>`.
-            assert_eq!(facets, [
-                ("/top1/mid0/leaf0", 10),
-                ("/top1/mid0/leaf1", 10),
-                ("/top1/mid0/leaf2", 10),
-                ("/top1/mid0/leaf3", 10),
-                ("/top1/mid0/leaf4", 10),
-                ("/top1/mid1/leaf0", 10),
-                ("/top1/mid1/leaf1", 10),
-                ("/top1/mid1/leaf2", 10),
-                ("/top1/mid1/leaf3", 10),
-                ("/top1/mid1/leaf4", 10),
-                ("/top1/mid2/leaf0", 10),
-                ("/top1/mid2/leaf1", 10),
-                ("/top1/mid2/leaf2", 10),
-                ("/top1/mid2/leaf3", 10),
-                ("/top1/mid2/leaf4", 10),
-                ("/top1/mid3/leaf0", 10),
-                ("/top1/mid3/leaf1", 10),
-                ("/top1/mid3/leaf2", 10),
-                ("/top1/mid3/leaf3", 10),
-                ("/top1/mid3/leaf4", 10),
-            ].iter()
-                .map(|&(facet_str, count)| {
-                    (String::from(facet_str), count)
-                })
-                .collect::<Vec<_>>());
+            assert_eq!(facets, vec![
+                (Facet::from("/top1/mid0/leaf0"), 10),
+                (Facet::from("/top1/mid0/leaf1"), 10),
+                (Facet::from("/top1/mid0/leaf2"), 10),
+                (Facet::from("/top1/mid0/leaf3"), 10),
+                (Facet::from("/top1/mid0/leaf4"), 10),
+                (Facet::from("/top1/mid1/leaf0"), 10),
+                (Facet::from("/top1/mid1/leaf1"), 10),
+                (Facet::from("/top1/mid1/leaf2"), 10),
+                (Facet::from("/top1/mid1/leaf3"), 10),
+                (Facet::from("/top1/mid1/leaf4"), 10),
+                (Facet::from("/top1/mid2/leaf0"), 10),
+                (Facet::from("/top1/mid2/leaf1"), 10),
+                (Facet::from("/top1/mid2/leaf2"), 10),
+                (Facet::from("/top1/mid2/leaf3"), 10),
+                (Facet::from("/top1/mid2/leaf4"), 10),
+                (Facet::from("/top1/mid3/leaf0"), 10),
+                (Facet::from("/top1/mid3/leaf1"), 10),
+                (Facet::from("/top1/mid3/leaf2"), 10),
+                (Facet::from("/top1/mid3/leaf3"), 10),
+                (Facet::from("/top1/mid3/leaf4"), 10),
+            ]);
         }
 
 
 
         {
-            let facets: Vec<(String, u64)> = counts
+            let facets: Vec<(Facet, u64)> = counts
                 .with_depth(1)
-                .map(|(facet, count)| (facet.to_string(), count))
                 .collect();
-            assert_eq!(facets, [
-                ("/top0", 200), ("/top1", 200), ("/top2", 200),
-            ].iter()
-                .map(|&(facet_str, count)| {
-                    (String::from(facet_str), count)
-                })
-                .collect::<Vec<_>>());
+            assert_eq!(
+                facets, vec![
+                    (Facet::from("/top0"), 200),
+                    (Facet::from("/top1"), 200),
+                    (Facet::from("/top2"), 200)
+                ]);
         }
     }
 
