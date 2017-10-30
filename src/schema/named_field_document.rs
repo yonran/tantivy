@@ -43,7 +43,7 @@ impl Serialize for ImplicitelyTypedValue {
             Value::Str(ref v) => serializer.serialize_str(v),
             Value::U64(u) => serializer.serialize_u64(u),
             Value::I64(u) => serializer.serialize_i64(u),
-            Value::HierarchicalFacet(ref facet) => facet.serialize(serializer),
+            Value::Facet(ref facet) => facet.serialize(serializer),
         }
     }
 }

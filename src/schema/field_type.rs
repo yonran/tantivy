@@ -85,7 +85,7 @@ impl FieldType {
                         ))
                     }
                     FieldType::HierarchicalFacet => {
-                        Ok(Value::HierarchicalFacet(Facet::from(field_text)))
+                        Ok(Value::Facet(Facet::from(field_text)))
                     }
                 }
             }

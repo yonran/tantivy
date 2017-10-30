@@ -113,16 +113,12 @@ mod tests {
     }
 
     fn test_write_create_the_file(directory: &mut Directory) {
-        {
-            assert!(directory.open_read(*TEST_PATH).is_err());
-            let _w = directory.open_write(*TEST_PATH).unwrap();
-            assert!(directory.exists(*TEST_PATH));
-            if let Err(e) = directory.open_read(*TEST_PATH) {
-                println!("{:?}", e);
-            }
-            assert!(directory.open_read(*TEST_PATH).is_ok());
-            assert!(directory.delete(*TEST_PATH).is_ok());
-        }
+        assert!(directory.open_read(*TEST_PATH).is_err());
+        let _w = directory.open_write(*TEST_PATH).unwrap();
+        assert!(directory.exists(*TEST_PATH));
+        assert!(directory.open_read(*TEST_PATH).is_ok());
+        assert!(directory.open_read(*TEST_PATH).is_ok());
+        assert!(directory.delete(*TEST_PATH).is_ok());
     }
 
     fn test_directory_delete(directory: &mut Directory) {
@@ -132,17 +128,15 @@ mod tests {
         write_file.flush().unwrap();
         {
             let read_handle = directory.open_read(*TEST_PATH).unwrap();
-            {
+            assert_eq!(&*read_handle, &[1u8, 2u8, 3u8, 4u8]);
+
+            // Mapped files can't be deleted on Windows
+            if !cfg!(windows) {
+                assert!(directory.delete(*TEST_PATH).is_ok());
                 assert_eq!(&*read_handle, &[1u8, 2u8, 3u8, 4u8]);
-
-                // Mapped files can't be deleted on Windows
-                if !cfg!(windows) {
-                    assert!(directory.delete(*TEST_PATH).is_ok());
-                    assert_eq!(&*read_handle, &[1u8, 2u8, 3u8, 4u8]);
-                }
-
-                assert!(directory.delete(Path::new("SomeOtherPath")).is_err());
             }
+
+            assert!(directory.delete(Path::new("SomeOtherPath")).is_err());
         }
 
         if cfg!(windows) {

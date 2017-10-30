@@ -153,8 +153,10 @@ impl<'a> SegmentWriter<'a> {
                     let facets: Vec<&[u8]> = field_values.iter()
                         .flat_map(|field_value| {
                             match field_value.value() {
-                                &Value::HierarchicalFacet(ref facet) => Some(facet.encoded_bytes()),
-                                _ => None
+                                &Value::Facet(ref facet) => Some(facet.encoded_bytes()),
+                                _ => {
+                                    panic!("Expected hierarchical facet");
+                                }
                             }
                         })
                         .collect();
@@ -190,8 +192,12 @@ impl<'a> SegmentWriter<'a> {
                                     }
                                 })
                                 .collect();
-                            let mut token_stream = analyzer.token_stream_texts(&texts[..]);
-                            self.multifield_postings.index_text(doc_id, field, &mut token_stream)
+                            if texts.is_empty() {
+                                0
+                            } else {
+                                let mut token_stream = analyzer.token_stream_texts(&texts[..]);
+                                self.multifield_postings.index_text(doc_id, field, &mut token_stream)
+                            }
                         } else {
                             0
                         };

@@ -38,8 +38,7 @@ impl MultiValueIntFastFieldWriter {
     }
 
     /// Push the fast fields value to the `FastFieldWriter`.
-    pub fn serialize(&self, serializer: &mut FastFieldSerializer, mapping_opt: Option<&HashMap<UnorderedTermId, usize>>) -> io::Result<()> {
-        let mapping = mapping_opt.expect("Term ord mapping missing");
+    pub fn serialize(&self, serializer: &mut FastFieldSerializer, mapping: &HashMap<UnorderedTermId, usize>) -> io::Result<()> {
         {
             // writing the offset index
             let mut doc_index_serializer = serializer.new_u64_fast_field_with_idx(self.field, 0, self.vals.len() as u64, 0)?;

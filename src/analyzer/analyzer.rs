@@ -81,8 +81,7 @@ impl<A> BoxedAnalyzer for BoxableAnalyzer<A> where A: 'static + Send + Sync + fo
         assert!(texts.len() > 0);
         if texts.len() == 1 {
             box self.0.token_stream(texts[0])
-        }
-        else {
+        } else {
             let mut offsets = vec!();
             let mut total_offset = 0;
             for text in texts {

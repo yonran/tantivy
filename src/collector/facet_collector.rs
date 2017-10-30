@@ -49,45 +49,85 @@ fn facet_depth(facet_bytes: &[u8]) -> usize {
 /// ```rust
 /// #[macro_use]
 /// extern crate tantivy;
-/// use tantivy::schema::{Result, Schema, TEXT};
+/// use tantivy::schema::{Facet, SchemaBuilder, TEXT};
+/// use tantivy::{Index, Result};
+/// use tantivy::collector::FacetCollector;
+/// use tantivy::query::AllQuery;
 ///
 /// # fn main() { example().unwrap(); }
 /// fn example() -> Result<()> {
 ///     let mut schema_builder = SchemaBuilder::new();
 ///
-///     // facet have their own specific type.
+///     // Facet have their own specific type.
+///     // It is not a bad practise to put all of your
+///     // facet information in the same field.
 ///     let facet = schema_builder.add_facet_field("facet");
 ///     let title = schema_builder.add_text_field("title", TEXT);
 ///     let schema = schema_builder.build();
 ///     let index = Index::create_in_ram(schema);
+///     {
+///         let mut index_writer = index.writer(3_000_000)?;
+///         // a document can be associated to any number of facets
+///         index_writer.add_document(doc!(
+///             title => "The Name of the Wind",
+///             facet => Facet::from("/lang/en"),
+///             facet => Facet::from("/category/fiction/fantasy")
+///         ));
+///         index_writer.add_document(doc!(
+///             title => "Dune",
+///             facet => Facet::from("/lang/en"),
+///             facet => Facet::from("/category/fiction/sci-fi")
+///         ));
+///         index_writer.add_document(doc!(
+///             title => "La Vénus d'Ille",
+///             facet => Facet::from("/lang/fr"),
+///             facet => Facet::from("/category/fiction/fantasy"),
+///             facet => Facet::from("/category/fiction/horror")
+///         ));
+///         index_writer.add_document(doc!(
+///             title => "The Diary of a Young Girl",
+///             facet => Facet::from("/lang/en"),
+///             facet => Facet::from("/category/biography")
+///         ));
+///         index_writer.commit().unwrap();
+///     }
 ///
-///     let mut index_writer = index.writer(3_000_000)?;
-///     // a document can be associated to any number of facets
-///     index_writer.add_document(doc!(
-///         title => "The Name of the Wind",
-///         facet => "/lang/en",
-///         facet => "/category/fiction/fantasy",
-///     ));
-///     index_writer.add_document(doc!(
-///         title => "The Name of the Wind",
-///         facet => "/lang/en",
-///         facet => "/category/fiction/fantasy",
-///     );
-///     index_writer.commit().unwrap();
 ///     index.load_searchers()?;
 ///     let searcher = index.searcher();
 ///
-///     let mut facet_collector = FacetCollector::for_field(facet_field);
+///     let mut facet_collector = FacetCollector::for_field(facet);
 ///     searcher.search(&AllQuery, &mut facet_collector).unwrap();
 ///
 ///     // this object contains count aggregate for all of the facets.
-///     let counts: FacetCounts = facet_collector.harvest();
+///     let counts = facet_collector.harvest();
 ///
 ///     let facets: Vec<(Facet, u64)> = counts
 ///         .iter()
-///         .map(|(facet, count)| (facet.to_string(), count))
 ///         .collect();
-///     assert!(facets, vec!(""));
+///     assert_eq!(facets, vec![
+///         (Facet::from("/category/biography"), 1),
+///         (Facet::from("/category/fiction/fantasy"), 2),
+///         (Facet::from("/category/fiction/horror"), 1),
+///         (Facet::from("/category/fiction/sci-fi"), 1),
+///         (Facet::from("/lang/en"), 3),
+///         (Facet::from("/lang/fr"), 1)
+///     ]);
+///
+///     // Let's restrict the facets to the `category` subtree.
+///     let category_facet = counts.root(Facet::from("/category"));
+///
+///     // It is usually better to aggregate facets one level under another level.
+///     let facets: Vec<(Facet, u64)> = category_facet
+///         .with_depth(1)
+///         .collect();
+///
+///     assert_eq!(facets, vec![
+///         //< note that one of the book was counted twice.
+///         (Facet::from("/category/biography"), 1),
+///         (Facet::from("/category/fiction"), 4),
+///     ]);
+///
+///     Ok(())
 /// }
 /// ```
 pub struct FacetCollector {
@@ -269,9 +309,8 @@ impl FacetCounts {
 
     /// Iterates the facets at a given depth below the root.
     ///
-    /// Deeper facets will all be accumulated in their parents count.
-    ///
-    ///
+    /// Deeper facets will all be accumulated in their parents
+    /// count.
     pub fn with_depth<'a>(&'a self, depth: usize) -> impl 'a + Iterator<Item=(Facet, u64)> {
         let depth: usize = facet_depth(self.root.encoded_bytes()) + depth;
         FacetIteratorWithDepth {
@@ -286,7 +325,8 @@ impl FacetCounts {
     fn vals(&self) -> Vec<&[u64]> {
         self.segments_counts
             .iter()
-            .map(Vec::as_slice)
+            .map(|segment_counter|
+                &segment_counter.facet_counts[..])
             .collect()
     }
 
@@ -470,11 +510,11 @@ mod tests {
                 .collect::<Vec<_>>());
         }
         {
-            let facets: Vec<(String, u64)> = counts
+            let facets: Vec<(Facet, u64)> = counts
                 .root(Facet::from("/top1"))
                 .iter()
-                .map(|(facet, count)| (facet.to_string(), count))
                 .collect();
+            // For simplicity, Facet implements `PartialEq<&str>`.
             assert_eq!(facets, [
                 ("/top1/mid0/leaf0", 10),
                 ("/top1/mid0/leaf1", 10),

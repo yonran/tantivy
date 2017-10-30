@@ -19,6 +19,7 @@ macro_rules! get(
 /// ```
 ///
 /// The value can be a `u64`, a `&str`, a `i64`, or a `String`.
+/// A field can appear multiple times.
 ///
 /// # Warning
 ///
@@ -39,13 +40,18 @@ macro_rules! get(
 /// # fn main() {
 /// let mut schema_builder = SchemaBuilder::new();
 /// let title = schema_builder.add_text_field("title", TEXT);
-/// let author = schema_builder.add_text_field("text", TEXT);
+/// let director = schema_builder.add_text_field("director", TEXT);
+/// let actor = schema_builder.add_text_field("actor", TEXT);
 /// let likes = schema_builder.add_u64_field("num_u64", FAST);
 /// let schema = schema_builder.build();
 /// let doc = doc!(
 /// 	title => "Life Aquatic",
-/// 	author => "Wes Anderson",
-/// 	likes => 4u64
+/// 	director => "Wes Anderson",
+///     likes => 4u64,
+///     actor => "Bill Murray",
+/// 	actor => "Owen Wilson",
+///     actor => "Cate Blanchett",
+///     actor => "Anjelica Huston"
 /// );
 /// # }
 /// ```

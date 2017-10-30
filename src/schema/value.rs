@@ -13,7 +13,7 @@ pub enum Value {
     /// Signed 64-bits Integer `i64`
     I64(i64),
     /// Hierarchical Facet
-    HierarchicalFacet(Facet),
+    Facet(Facet),
 }
 
 
@@ -71,9 +71,16 @@ impl From<i64> for Value {
     }
 }
 
+
 impl<'a> From<&'a str> for Value {
     fn from(s: &'a str) -> Value {
         Value::Str(s.to_string())
+    }
+}
+
+impl<'a> From<Facet> for Value {
+    fn from(facet: Facet) -> Value {
+        Value::Facet(facet)
     }
 }
 
@@ -99,7 +106,7 @@ impl BinarySerializable for Value {
                 I64_CODE.serialize(writer)?;
                 val.serialize(writer)
             }
-            Value::HierarchicalFacet(ref facet) => {
+            Value::Facet(ref facet) => {
                 HIERARCHICAL_FACET_CODE.serialize(writer)?;
                 facet.serialize(writer)
             }
@@ -121,7 +128,7 @@ impl BinarySerializable for Value {
                 Ok(Value::I64(value))
             }
             HIERARCHICAL_FACET_CODE => {
-                 Ok(Value::HierarchicalFacet(Facet::deserialize(reader)?))
+                 Ok(Value::Facet(Facet::deserialize(reader)?))
             }
             _ => {
                 Err(io::Error::new(

@@ -36,7 +36,6 @@ impl Facet {
         Facet(vec![])
     }
 
-
     /// Returns true iff the facet is the root facet `/`.
     pub fn is_root(&self) -> bool {
         self.encoded_bytes().is_empty()
@@ -180,6 +179,7 @@ impl Debug for Facet {
         Ok(())
     }
 }
+
 
 #[cfg(test)]
 mod tests {

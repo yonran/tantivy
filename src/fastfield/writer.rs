@@ -111,7 +111,12 @@ impl FastFieldsWriter {
             field_writer.serialize(serializer)?;
         }
         for field_writer in &self.multi_values_writers {
-            field_writer.serialize(serializer, mapping.get(&field_writer.field()))?;
+            let field = field_writer.field();
+            if let Some(mapping) = mapping.get(&field) {
+                field_writer.serialize(serializer, mapping)?;
+            } else {
+                panic!("Term ordinal mapping missing for {:?}", field);
+            }
         }
         Ok(())
     }
