@@ -9,13 +9,75 @@ use termdict::TermStreamer;
 use termdict::TermStreamerBuilder;
 use termdict::TermMerger;
 use std::sync::Arc;
+use std::u64;
 
 use DocId;
 use Result;
 use Score;
 use SegmentReader;
 use SegmentLocalId;
+use std::collections::BinaryHeap;
+use std::cmp::Ordering;
 
+struct Hit {
+    count: u64,
+    facet: Facet,
+}
+
+impl From<(Facet, u64)> for Hit {
+    fn from(facet_count: (Facet, u64)) -> Self {
+        let (facet, count) = facet_count;
+        Hit {
+            count: count,
+            facet: facet
+        }
+    }
+}
+
+impl Eq for Hit {}
+
+impl PartialEq<Hit> for Hit {
+    fn eq(&self, other: &Hit) -> bool {
+        self.count == other.count
+    }
+}
+
+impl PartialOrd<Hit> for Hit {
+    fn partial_cmp(&self, other: &Hit) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Hit {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.count.cmp(&self.count)
+    }
+}
+
+/// Querying the result
+pub trait FacetCountIterator: Iterator<Item=(Facet, u64)> {
+    fn top_k(&mut self, k: usize) -> Vec<(Facet, u64)> {
+        let mut heap = BinaryHeap::with_capacity(k);
+        for facet_count in self.take(k) {
+            heap.push(Hit::from(facet_count));
+        }
+        let mut lowest_count: u64 = heap.peek()
+            .map(|hit| hit.count)
+            .unwrap_or(u64::MIN);
+        for (facet, count) in self {
+            if count > lowest_count {
+                lowest_count = count;
+                if let Some(mut head) = heap.peek_mut() {
+                    *head = Hit::from((facet, count));
+                }
+            }
+        }
+        heap.into_sorted_vec()
+            .into_iter()
+            .map(|hit| (hit.facet, hit.count))
+            .collect::<Vec<_>>()
+    }
+}
 
 struct SegmentFacetCounter {
     pub facet_reader: FacetReader,
@@ -258,6 +320,7 @@ impl<'a> Iterator for FacetIteratorWithDepth<'a> {
     }
 }
 
+impl<'a> FacetCountIterator for FacetIteratorWithDepth<'a> {}
 
 pub struct FacetIterator<'a> {
     facet_stream: TermMerger<'a>,
@@ -288,11 +351,12 @@ impl<'a> Iterator for FacetIterator<'a> {
     }
 }
 
+impl<'a> FacetCountIterator for FacetIterator<'a> {}
+
 
 /// Intermediary result of the `FacetCollector` that stores
 /// the facet counts for all the segments.
 ///
-/// Check
 pub struct FacetCounts {
     segments_counts: Arc<Vec<SegmentFacetCounter>>,
     root: Facet,
@@ -313,7 +377,15 @@ impl FacetCounts {
     ///
     /// Deeper facets will all be accumulated in their parents
     /// count.
-    pub fn with_depth<'a>(&'a self, depth: usize) -> impl 'a + Iterator<Item=(Facet, u64)> {
+    ///
+    /// # Disclaimer
+    ///
+    /// If documents are multivalued, the facet counts are not always
+    /// true document counts.
+    /// For instance, if a document contains `N` facets that
+    /// gets are children to a facet of the given depth the document
+    /// will be counted `N` times.
+    pub fn with_depth<'a>(&'a self, depth: usize) -> impl 'a + FacetCountIterator {
         let depth: usize = facet_depth(self.root.encoded_bytes()) + depth;
         FacetIteratorWithDepth {
             facet_stream: self.facets(),
@@ -385,7 +457,7 @@ impl FacetCounts {
     /// `/location/europe` and `/location`.
     ///
     /// To get aggregate at a given level, check out [`.with_depth(usize)`](#method.with_depth).
-    pub fn iter<'a>(&'a self) -> impl 'a + Iterator<Item=(Facet, u64)> {
+    pub fn iter<'a>(&'a self) -> impl 'a + FacetCountIterator {
         FacetIterator {
             facet_stream: self.facets(),
             vals: self.vals(),
@@ -404,6 +476,9 @@ mod tests {
     use schema::Facet;
     use query::AllQuery;
     use super::{FacetCollector, FacetCounts};
+    use collector::facet_collector::FacetCountIterator;
+    use std::iter;
+    use rand::{thread_rng, Rng};
 
     #[test]
     fn test_facet_collector() {
@@ -540,18 +615,51 @@ mod tests {
                 (Facet::from("/top1/mid3/leaf4"), 10),
             ]);
         }
+    }
 
+    #[test]
+    fn test_facet_collector_topk() {
+        let mut schema_builder = SchemaBuilder::new();
+        let facet_field = schema_builder.add_facet_field("facet");
+        let schema = schema_builder.build();
+        let index = Index::create_in_ram(schema);
 
+        let mut index_writer = index.writer(3_000_000).unwrap();
 
+        let mut docs: Vec<Document> = vec![
+                ("a", 10),
+                ("b", 100),
+                ("c", 7),
+                ("d", 12),
+                ("e", 21)
+            ].into_iter()
+             .flat_map(|(c, count)| {
+                 let facet = Facet::from(&format!("/facet_{}", c));
+                 let doc = doc!(facet_field => facet);
+                 iter::repeat(doc).take(count)
+             }).collect();
+        thread_rng().shuffle(&mut docs[..]);
+        for doc in docs {
+            index_writer.add_document(doc);
+        }
+        index_writer.commit().unwrap();
+
+        index.load_searchers().unwrap();
+        let searcher = index.searcher();
+
+        let mut facet_collector = FacetCollector::for_field(facet_field);
+        searcher.search(&AllQuery, &mut facet_collector).unwrap();
+
+        let counts: FacetCounts = facet_collector.harvest();
         {
             let facets: Vec<(Facet, u64)> = counts
                 .with_depth(1)
-                .collect();
+                .top_k(3);
             assert_eq!(
                 facets, vec![
-                    (Facet::from("/top0"), 200),
-                    (Facet::from("/top1"), 200),
-                    (Facet::from("/top2"), 200)
+                    (Facet::from("/facet_b"), 100),
+                    (Facet::from("/facet_e"), 21),
+                    (Facet::from("/facet_d"), 12)
                 ]);
         }
     }

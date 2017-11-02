@@ -5,6 +5,7 @@ use DocAddress;
 use Result;
 use std::collections::BinaryHeap;
 use std::cmp::Ordering;
+use std::f32;
 use DocId;
 use Score;
 
@@ -44,25 +45,22 @@ impl Eq for GlobalScoredDoc {}
 ///
 /// The implementation is based on a `BinaryHeap`.
 /// The theorical complexity is `O(n log K)`.
+#[derive(Clone)]
 pub struct TopCollector {
     limit: usize,
     heap: BinaryHeap<GlobalScoredDoc>,
     segment_id: u32,
+    lowest_score: Score,
 }
 
 impl TopCollector {
     /// Creates a top collector, with a number of documents equal to "limit".
-    ///
-    /// # Panics
-    /// The method panics if limit is 0
     pub fn with_limit(limit: usize) -> TopCollector {
-        if limit < 1 {
-            panic!("Limit must be strictly greater than 0.");
-        }
         TopCollector {
             limit: limit,
             heap: BinaryHeap::with_capacity(limit),
             segment_id: 0,
+            lowest_score: f32::NEG_INFINITY,
         }
     }
 
@@ -70,7 +68,7 @@ impl TopCollector {
     ///
     /// Calling this method triggers the sort.
     /// The result of the sort is not cached.
-    pub fn docs(&self) -> Vec<DocAddress> {
+    pub fn docs(    self) -> Vec<DocAddress> {
         self.score_docs()
             .into_iter()
             .map(|score_doc| score_doc.1)
@@ -81,10 +79,9 @@ impl TopCollector {
     ///
     /// Calling this method triggers the sort.
     /// The result of the sort is not cached.
-    pub fn score_docs(&self) -> Vec<(Score, DocAddress)> {
-        let mut scored_docs: Vec<GlobalScoredDoc> = self.heap.iter().cloned().collect();
-        scored_docs.sort();
-        scored_docs
+    pub fn score_docs(self) -> Vec<(Score, DocAddress)> {
+        self.heap
+            .into_sorted_vec()
             .into_iter()
             .map(|GlobalScoredDoc { score, doc_address }| {
                 (score, doc_address)
@@ -108,16 +105,12 @@ impl Collector for TopCollector {
 
     fn collect(&mut self, doc: DocId, score: Score) {
         if self.at_capacity() {
-            // It's ok to unwrap as long as a limit of 0 is forbidden.
-            let limit_doc: GlobalScoredDoc = *self.heap.peek().expect(
-                "Top collector with size 0 is forbidden",
-            );
-            if limit_doc.score < score {
-                let mut mut_head = self.heap.peek_mut().expect(
-                    "Top collector with size 0 is forbidden",
-                );
-                mut_head.score = score;
-                mut_head.doc_address = DocAddress(self.segment_id, doc);
+            if self.lowest_score < score {
+                self.lowest_score = score;
+                if let Some(mut mut_head) = self.heap.peek_mut() {
+                    mut_head.score = score;
+                    mut_head.doc_address = DocAddress(self.segment_id, doc);
+                }
             }
         } else {
             let wrapped_doc = GlobalScoredDoc {
@@ -125,6 +118,7 @@ impl Collector for TopCollector {
                 doc_address: DocAddress(self.segment_id, doc),
             };
             self.heap.push(wrapped_doc);
+            self.lowest_score = self.lowest_score.max(score);
         }
 
     }
@@ -142,6 +136,7 @@ mod tests {
     #[test]
     fn test_top_collector_not_at_capacity() {
         let mut top_collector = TopCollector::with_limit(4);
+        assert!(!top_collector.at_capacity());
         top_collector.collect(1, 0.8);
         top_collector.collect(3, 0.2);
         top_collector.collect(5, 0.3);
@@ -157,6 +152,7 @@ mod tests {
     #[test]
     fn test_top_collector_at_capacity() {
         let mut top_collector = TopCollector::with_limit(4);
+        assert!(!top_collector.at_capacity());
         top_collector.collect(1, 0.8);
         top_collector.collect(3, 0.2);
         top_collector.collect(5, 0.3);
@@ -165,11 +161,12 @@ mod tests {
         assert!(top_collector.at_capacity());
         {
             let score_docs: Vec<(Score, DocId)> = top_collector
+                .clone()
                 .score_docs()
                 .into_iter()
                 .map(|(score, doc_address)| (score, doc_address.doc()))
                 .collect();
-            assert_eq!(score_docs, vec![(0.9, 7), (0.8, 1), (0.3, 5), (0.2, 3)]);
+            assert_eq!(score_docs, vec![(0.9, 7), (0.8, 1), (0.3, 5), ( 0.2, 3)]);
         }
         {
             let docs: Vec<DocId> = top_collector
@@ -184,8 +181,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_top_0() {
-        TopCollector::with_limit(0);
+        let mut top_collector = TopCollector::with_limit(0);
+        assert!(top_collector.at_capacity());
+        top_collector.collect(1, 0.8);
+        assert!(top_collector.at_capacity());
+        assert!(top_collector
+            .clone()
+            .score_docs()
+            .is_empty());
     }
 }
