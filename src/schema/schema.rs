@@ -298,7 +298,7 @@ impl<'de> Deserialize<'de> for Schema {
             }
         }
 
-        deserializer.deserialize_map(SchemaVisitor)
+        deserializer.deserialize_seq(SchemaVisitor)
     }
 }
 

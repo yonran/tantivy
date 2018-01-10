@@ -1,3 +1,7 @@
+Tantivy 0.4.4
+==========================
+
+- Hotfix for Schema deserialization
 
 Tantivy 0.4.3
 ==========================
